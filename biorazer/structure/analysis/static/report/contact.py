@@ -8,8 +8,30 @@ from biorazer.structure.util.report import (
     _format_atom_label,
     _to_pymol_atom_selector,
 )
+from ..calculation.array import sasa_array
 from ....selection.mask.spatial import close_atoms
 from .util import _normalize_fmt
+
+
+def _iter_residue_masks(atom_array):
+    """按 (chain_id, res_id) 分组迭代残基, 产出 ((chain_id, res_id), atom_mask)。"""
+    if len(atom_array) == 0:
+        return
+
+    start = 0
+    current_key = (str(atom_array.chain_id[0]), int(atom_array.res_id[0]))
+    for index in range(1, len(atom_array)):
+        key = (str(atom_array.chain_id[index]), int(atom_array.res_id[index]))
+        if key != current_key:
+            mask = np.zeros(len(atom_array), dtype=bool)
+            mask[start:index] = True
+            yield current_key, mask
+            start = index
+            current_key = key
+
+    mask = np.zeros(len(atom_array), dtype=bool)
+    mask[start:] = True
+    yield current_key, mask
 
 
 def report_interface_residues(
@@ -62,6 +84,143 @@ def report_interface_residues(
     elif fmt == "text":
         for chain_id, res_id in interface_residues:
             print(f"Chain {chain_id}, Residue {res_id}")
+
+
+def report_interface_dSASA(
+    atom_array: bio_struct.AtomArray,
+    selection1,
+    selection2,
+    distance_cutoff=3.5,
+    fmt="text",
+    probe_radius=1.4,
+    exclude_elements=None,
+    pymol_model_name="",
+    pymol_selection_prefix=None,
+):
+    """
+    Report per-residue buried solvent accessible surface area (ΔSASA)
+    at the interface between two selections.
+
+    残基范围与 ``report_interface_residues`` 一致: 两 selection 间存在
+    ≤ ``distance_cutoff`` 原子接触的残基 (``close_atoms``)。对这些残基
+    计算 ΔSASA = SASA(单体, 该 selection 单独) - SASA(复合物, 整条
+    atom_array), 即埋藏面积。SASA 计算复用 ``calculation.array.sasa_array``
+    (biotite ``sasa``)。
+
+    Parameters
+    ----------
+    atom_array : bio_struct.AtomArray
+        The structure containing both selections.
+    selection1, selection2
+        Atom selections understood by ``normalize_selection()``.
+        (布尔 mask, 或 None/\"all\" 表示全选)
+    distance_cutoff : float, optional
+        原子对距离 cutoff (Å), 用于判定界面残基。
+    fmt : str
+        - text: 打印总埋藏面积 (BSA) 与逐残基 ΔSASA (按 ΔSASA 降序)
+        - list: 返回 [(chain_id, res_id, dSASA), ...]
+        - pymol: 打印 PyMOL select 命令 (selection 名 {prefix}_dsasa)
+    probe_radius : float, optional
+        SASA 探针半径 (Å), 传给 sasa_array。
+    exclude_elements : list of str, optional
+        SASA 计算前排除的元素, 默认 [\"H\"]。
+    pymol_model_name : str, optional
+        PyMOL object (model) 名称, 用于构造 /model//chain/res/ 选择器。
+    pymol_selection_prefix : str, optional
+        界面 selection 的命名前缀, 缺省回退为 pymol_model_name。
+
+    Returns
+    -------
+    list of tuple or None
+        fmt == \"list\" 时返回 [(chain_id, res_id, dSASA), ...] (ΔSASA 降序),
+        否则 None (报告已打印)。无界面残基时 list 返回 []。
+    """
+    fmt = _normalize_fmt(fmt, ("pymol", "text", "list"))
+    if exclude_elements is None:
+        exclude_elements = ["H"]
+
+    selection_mask_1 = _normalize_selection(atom_array, selection1)
+    selection_mask_2 = _normalize_selection(atom_array, selection2)
+
+    interface_atom_mask_1, interface_atom_mask_2 = close_atoms(
+        atom_array,
+        selection1=selection_mask_1,
+        selection2=selection_mask_2,
+        distance_cutoff=distance_cutoff,
+    )
+    interface_atom_mask = interface_atom_mask_1 | interface_atom_mask_2
+
+    if not interface_atom_mask.any():
+        if fmt == "list":
+            return []
+        print(
+            f"No interface residues found within {distance_cutoff:.2f} Å."
+        )
+        return None
+
+    sasa_complex = sasa_array(
+        atom_array,
+        probe_radius=probe_radius,
+        exclude_elements=exclude_elements,
+    )
+
+    # 各 selection 单独存在时的逐原子 SASA, 映射回全数组索引
+    sasa_alone = np.zeros(atom_array.shape, dtype=float)
+    for selection_mask in (selection_mask_1, selection_mask_2):
+        if not selection_mask.any():
+            continue
+        sub_sasa = sasa_array(
+            atom_array[selection_mask],
+            probe_radius=probe_radius,
+            exclude_elements=exclude_elements,
+        )
+        sasa_alone[selection_mask] = sub_sasa
+
+    results = []
+    for (chain_id, res_id), residue_mask in _iter_residue_masks(atom_array):
+        if not (residue_mask & interface_atom_mask).any():
+            continue
+        counted_atoms = residue_mask & (selection_mask_1 | selection_mask_2)
+        d_sasa = float(
+            np.sum(sasa_alone[counted_atoms] - sasa_complex[counted_atoms])
+        )
+        results.append((chain_id, res_id, d_sasa))
+
+    results.sort(key=lambda item: item[2], reverse=True)
+
+    if fmt == "list":
+        return results
+
+    if fmt == "text":
+        buried_1 = float(
+            np.sum(sasa_alone[selection_mask_1] - sasa_complex[selection_mask_1])
+        )
+        buried_2 = float(
+            np.sum(sasa_alone[selection_mask_2] - sasa_complex[selection_mask_2])
+        )
+        bsa = (buried_1 + buried_2) / 2
+        print(
+            f"Buried surface area (BSA): {bsa:.2f} Å² "
+            f"(selection1: {buried_1:.2f} Å², selection2: {buried_2:.2f} Å²)"
+        )
+        print(f"{len(results)} interface residues (sorted by ΔSASA desc):")
+        for chain_id, res_id, d_sasa in results:
+            print(
+                f"Chain {chain_id}, Residue {res_id}, "
+                f"ΔSASA {d_sasa:.2f} Å²"
+            )
+        return None
+
+    if fmt == "pymol":
+        selection_name = f"{pymol_selection_prefix or pymol_model_name}_dsasa"
+        print_with_decoration("Copy the command below to PyMOL", decoration_char="#")
+        print(f"select {selection_name}, not all")
+        for chain_id, res_id, _ in results:
+            print(
+                f"select {selection_name}, /{pymol_model_name}//{chain_id}/{res_id}/ or {selection_name}"
+            )
+        print_decoration_line(decoration_char="#")
+        return None
 
 
 def report_interface_contact_matrix(
