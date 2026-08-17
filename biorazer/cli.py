@@ -5,6 +5,7 @@ import sys
 from biorazer.access import cli as access_cli
 from biorazer.access.server.colabfold_msa import cli as colabfold_cli
 from biorazer.sequence.analysis.alignment.plot import cli as plot_cli
+from biorazer.structure.analysis.static.report import cli as report_cli
 
 
 def main():
@@ -19,6 +20,7 @@ def main():
     access_cli.register_subcommand(sub)
     colabfold_cli.register_subcommand(sub)
     plot_cli.register_subcommand(sub)
+    report_cli.register_subcommand(sub)
 
     args = parser.parse_args()
     if hasattr(args, "func"):

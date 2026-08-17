@@ -1,7 +1,12 @@
+import argparse
+import sys
+from pathlib import Path
+
 import numpy as np
 from scipy.spatial import KDTree
 from biotite import structure as bio_struct
 from biorazer.display import print_with_decoration, print_decoration_line
+from biorazer.structure.io.protein import Cif_AtomArray, Pdb_AtomArray
 from biorazer.structure.selection.mask.report import report_mask_by_res
 from biorazer.structure.util.selection import _normalize_selection
 from biorazer.structure.util.report import (
@@ -531,3 +536,74 @@ def report_inter_steric_clashes(
             )
         print_decoration_line()
         return None
+
+
+# --- report-interface-dsasa 子命令 ---
+
+def _load_structure(path):
+    """按后缀识别 PDB/CIF 并读入 AtomArray; 不支持的格式直接报错退出"""
+    suffix = Path(path).suffix.lower()
+    try:
+        if suffix in (".pdb", ".ent"):
+            return Pdb_AtomArray(input_io=str(path)).read()
+        if suffix in (".cif", ".mmcif"):
+            return Cif_AtomArray(input_io=str(path)).read()
+    except (OSError, ValueError) as e:
+        sys.exit(f"error: 读取 {path} 失败: {e}")
+    sys.exit(f"error: 不支持的文件后缀 {suffix!r} (支持 .pdb/.ent/.cif/.mmcif)")
+
+
+def _add_interface_dsasa_parser(sub):
+    p = sub.add_parser(
+        "report-interface-dsasa",
+        help="报告两链界面残基的埋藏面积 (ΔSASA)",
+        description=(
+            "计算两个 selection (链) 之间界面残基的逐残基埋藏面积:\n"
+            "ΔSASA = SASA(单体, 该链单独) - SASA(复合物, 整条结构),\n"
+            "总埋藏面积 BSA = (ΔSASA1 + ΔSASA2) / 2。\n"
+            "界面残基 = 两链间存在 ≤ --distance-cutoff 原子接触的残基。"
+        ),
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+    )
+    p.add_argument("-i", "--input", required=True, metavar="PDB|CIF",
+                   help="输入结构文件 (PDB/CIF, 按后缀自动识别)")
+    p.add_argument("--chain1", required=True, metavar="CHAIN_ID",
+                   help="第一个 selection 的链 ID")
+    p.add_argument("--chain2", required=True, metavar="CHAIN_ID",
+                   help="第二个 selection 的链 ID")
+    p.add_argument("--distance-cutoff", type=float, default=3.5, metavar="A",
+                   help="界面原子距离 cutoff in Å (默认 3.5)")
+    p.add_argument("--fmt", choices=["text", "list", "pymol"], default="text",
+                   help="输出格式 (默认 text; list 输出 TSV 到 stdout)")
+    p.add_argument("--probe-radius", type=float, default=1.4, metavar="A",
+                   help="SASA 探针半径 in Å (默认 1.4)")
+    p.add_argument("--pymol-model-name", default="", metavar="NAME",
+                   help="PyMOL object 名, fmt=pymol 时用于 /model//chain/res/ 选择器")
+    p.set_defaults(func=_run_interface_dsasa)
+    return p
+
+
+def _run_interface_dsasa(args) -> None:
+    """执行 report-interface-dsasa 子命令"""
+    structure = _load_structure(args.input)
+
+    selection_mask_1 = structure.chain_id == args.chain1
+    selection_mask_2 = structure.chain_id == args.chain2
+    if not selection_mask_1.any():
+        sys.exit(f"error: 在 {args.input} 中找不到链 {args.chain1!r}")
+    if not selection_mask_2.any():
+        sys.exit(f"error: 在 {args.input} 中找不到链 {args.chain2!r}")
+
+    results = report_interface_dSASA(
+        structure,
+        selection_mask_1,
+        selection_mask_2,
+        distance_cutoff=args.distance_cutoff,
+        fmt=args.fmt,
+        probe_radius=args.probe_radius,
+        pymol_model_name=args.pymol_model_name,
+    )
+
+    if args.fmt == "list":
+        for chain_id, res_id, d_sasa in (results or []):
+            print(f"{chain_id}\t{res_id}\t{d_sasa}")
