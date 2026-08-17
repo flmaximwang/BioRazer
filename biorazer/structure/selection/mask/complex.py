@@ -3,7 +3,7 @@ import biotite.structure as bio_struct
 import hydride
 from ...selection.mask.annotation import extend_by_res as _by_res_id, revert_mask as _revert_mask
 from ...selection.mask.spatial import close_atoms
-from . import check
+from ....structure.analysis.static import check
 
 
 def hbond_atoms(
