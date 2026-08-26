@@ -238,6 +238,53 @@ class InternalCoord:
         return new_ic
 
     # ------------------------------------------------------------------ #
+    #  connectivity (runtime, derived from dihedra)
+    # ------------------------------------------------------------------ #
+    @property
+    def fragments(self):
+        """Split all atoms into connected components (subgraphs) of ``dihedra``.
+
+        Two atoms are in the same fragment iff they are connected through a
+        path of ``dihedra`` edges (each dihedral ``(i, j, k, l)`` contributes
+        the edges ``i-j``, ``j-k``, ``k-l``).  This is computed at runtime from
+        ``self.dihedra`` only; atoms that appear in no dihedral form their own
+        single-atom fragments.
+
+        Returns
+        -------
+        list[list[int]]
+            The connected components, each a sorted list of atom indices.
+        """
+        n = len(self.atoms)
+
+        adj = [[] for _ in range(n)]
+        for (i, j, k, l) in self.dihedra:
+            adj[i].append(j)
+            adj[j].append(i)
+            adj[j].append(k)
+            adj[k].append(j)
+            adj[k].append(l)
+            adj[l].append(k)
+
+        seen = [False] * n
+        fragments = []
+        for start in range(n):
+            if seen[start]:
+                continue
+            comp = []
+            stack = [start]
+            seen[start] = True
+            while stack:
+                x = stack.pop()
+                comp.append(x)
+                for y in adj[x]:
+                    if not seen[y]:
+                        seen[y] = True
+                        stack.append(y)
+            fragments.append(sorted(comp))
+        return fragments
+
+    # ------------------------------------------------------------------ #
     #  atom representation + pandas-table views
     # ------------------------------------------------------------------ #
     def atom_repr(self, i):
@@ -405,33 +452,58 @@ class InternalCoord:
     def from_atomarray(cls, arr, quads=None, anchor=None):
         """Build an :class:`InternalCoord` from a biotite ``AtomArray``.
 
+        Protein-aware construction (**the default**, ``quads=None``) runs a
+        two-pass build:
+
+        * **Main-chain pass** (uniform, same for every residue): the backbone
+          ``N -> CA -> C -> O`` is walked residue by residue, linking residue
+          ``i``'s ``C`` to residue ``i+1``'s ``N`` (peptide bond).  It records
+          the cross-residue quads ``(N_i, CA_i, C_i, N_{i+1})``,
+          ``(CA_i, C_i, N_{i+1}, CA_{i+1})``, ``(C_i, N_{i+1}, CA_{i+1}, C_{i+1})``
+          and the per-residue carbonyl branch ``(N, CA, C, O)``.
+        * **Side-chain pass** (per residue): each standard amino acid's side
+          chain is grown off the already-placed backbone using its per-residue
+          grow-path table ``SIDE_CHAIN_IC_PATH`` (chi rotamers; see
+          ``biorazer.database.internal_coord_template._topology``).  Non-standard /
+          non-protein atoms (water, ligands, hydrogens) are not covered.
+
+        Anchors default to the first three backbone atoms ``N, CA, C`` of every
+        chain (one connected-component root per chain).
+
+        For a **general graph** (ligands, rings, arbitrary connectivity) pass
+        explicit ``quads`` (a list of ``(i, j, k, l)`` atom-index quadruples) --
+        the generic path; its anchors default to ``{0: first atom}``.
+
         Parameters
         ----------
         arr : AtomArray
             Input structure.
         quads : list[tuple[int,int,int,int]] or None
-            The (i,j,k,l) atom-index quadruples to record as dihedrals.  If
-            ``None``, consecutive quadruples ``(0,1,2,3),(1,2,3,4),...`` are
-            used (assumes a linear backbone already in polymer order).
+            Explicit (i,j,k,l) atom-index quadruples for the general-graph
+            path.  If ``None`` (default) the protein-aware two-pass build above
+            is used.
         anchor : dict[int, tuple[float,float,float]] or None
-            Absolute coordinates for the anchor atoms given as a mapping.
-            Defaults to ``{0: (x,y,z)}`` (just the first atom).
+            Absolute coordinates for anchor atoms given as a mapping.  If
+            ``None`` (default) anchors are auto-detected (per chain's first
+            ``N, CA, C`` for the protein path; ``{0: first atom}`` for the
+            general ``quads`` path).
 
         Notes
         -----
         Bond lengths and angles are derived from the input ``arr`` for the
         parent/child pairs of each quad, so they are exact (not idealised).
         """
+        from biorazer.database.internal_coord_template._topology import (
+            SIDE_CHAIN_IC_PATH,
+        )
+        from biorazer.database.bond import AMINO_ACID_BOND_LENGTH
+
         n = len(arr)
         atoms = [AtomRecord.from_atom(arr, i) for i in range(n)]
         ic = cls(atoms=atoms)
-        if anchor is not None:
-            ic.anchor = anchor
-        else:
-            ic.anchor = {0: tuple(np.asarray(arr.coord[0], float))}
-        if quads is None:
-            quads = [tuple(range(i, i + 4)) for i in range(max(0, n - 3))]
-        for quad in quads:
+
+        def record(quad):
+            """Fill bond/angle/dihedra for one quad from ``arr`` (exact)."""
             i, j, k, l = quad
             c0 = np.asarray(arr.coord[i], float)
             c1 = np.asarray(arr.coord[j], float)
@@ -446,4 +518,75 @@ class InternalCoord:
                                       float(np.degrees(np.arccos(
                                           np.clip(cos, -1, 1)))))
             ic.dihedra[quad] = _dihedral(c0, c1, c2, c3)
+
+        if quads is not None:
+            # generic graph: explicit quads (legacy behaviour)
+            for quad in quads:
+                record(quad)
+            if anchor is not None:
+                ic.anchor = dict(anchor)
+            else:
+                ic.anchor = {0: tuple(np.asarray(arr.coord[0], float))}
+            return ic
+
+        # ---- protein-aware two-pass build --------------------------------
+        # Group atoms into residues (chain_id, res_id, ins_code), preserving
+        # atom order, and map atom name -> atom index within each residue.
+        residues = {}      # key -> {"res_name": str, "atoms": {name: idx}}
+        chain_keys = {}    # chain_id -> [keys in file order]
+        for i in range(n):
+            a = atoms[i]
+            key = (a.chain_id, a.res_id, a.insert_code)
+            if key not in residues:
+                residues[key] = {"res_name": a.res_name.upper(), "atoms": {}}
+                chain_keys.setdefault(a.chain_id, []).append(key)
+            residues[key]["atoms"][a.name] = i
+
+        auto_anchor = anchor is None
+        ic.anchor = {} if auto_anchor else dict(anchor)
+
+        for ckeys in chain_keys.values():
+            for r_i, key in enumerate(ckeys):
+                res = residues[key]["atoms"]
+                name = residues[key]["res_name"]
+                if not all(nm in res for nm in ("N", "CA", "C")):
+                    continue          # incomplete residue: cannot extend chain
+                nN, nCA, nC = (res[nm] for nm in ("N", "CA", "C"))
+
+                # root frame of this chain = its first three backbone atoms
+                if auto_anchor and r_i == 0:
+                    ic.anchor.setdefault(
+                        nN, tuple(np.asarray(arr.coord[nN], float)))
+                    ic.anchor.setdefault(
+                        nCA, tuple(np.asarray(arr.coord[nCA], float)))
+                    ic.anchor.setdefault(
+                        nC, tuple(np.asarray(arr.coord[nC], float)))
+
+                # carbonyl O (and C-terminal OXT) as branches off C
+                if "O" in res:
+                    record((nN, nCA, nC, res["O"]))
+                if "OXT" in res:
+                    record((nN, nCA, nC, res["OXT"]))
+
+                # peptide link to the next residue in the same chain; only
+                # connect when the C_i - N_{i+1} distance is chemically
+                # plausible (within the C-N bond-length upper bound), otherwise
+                # the chain is broken here and we must not keep growing.
+                c_n_ub = AMINO_ACID_BOND_LENGTH[("C", "N")]["up"]
+                if r_i + 1 < len(ckeys):
+                    nxt = residues[ckeys[r_i + 1]]["atoms"]
+                    if all(nm in nxt for nm in ("N", "CA", "C")):
+                        mN, mCA, mC = (nxt[nm] for nm in ("N", "CA", "C"))
+                        c_n_dist = float(np.linalg.norm(
+                            np.asarray(arr.coord[mN], float)
+                            - np.asarray(arr.coord[nC], float)))
+                        if c_n_dist <= c_n_ub:
+                            record((nN, nCA, nC, mN))    # C_i - N_{i+1} peptide
+                            record((nCA, nC, mN, mCA))   # N_{i+1} - CA_{i+1}
+                            record((nC, mN, mCA, mC))    # CA_{i+1} - C_{i+1}
+
+                # side chain: per-residue grow path (chi rotamers)
+                for spec in SIDE_CHAIN_IC_PATH.get(name, ()):
+                    if all(nm in res for nm in spec):
+                        record(tuple(res[nm] for nm in spec))
         return ic
