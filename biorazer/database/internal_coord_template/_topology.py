@@ -26,10 +26,18 @@ at ``k`` (``bond_angles[(j, k, l)]``), and the dihedral is
 the main-chain pass) or an earlier side-chain atom.
 
 The table is translated 1:1 from Rosetta's ``fa_standard`` residue params
-(``ICOOR_INTERNAL`` atom-tree) -- the first parent there is the bonded parent
-``k``; we swap it to the third slot.  Source files, release 408:
+(``ICOOR_INTERNAL`` atom-tree).  Source files, release 408:
 
     main/database/chemical/residue_type_sets/fa_standard/residue_types/l-caa/<AA>.params
+
+Each ``ICOOR_INTERNAL <child> <dih> <ang> <len> <P1> <P2> <P3>`` row places the
+child from the stub frame ``(P3, P2, P1)``: ``P1`` is the *bonded* parent
+(bond ``(P1, child)``), the bond angle is at ``P1`` between ``P2`` and ``child``,
+and the dihedral is ``dihedral(P3, P2, P1, child)`` (Rosetta measures it around
+the ``P2-P1`` axis in the ``(P3, P2, P1)`` frame).  The IC quad therefore keeps
+**the official order** ``(P3, P2, P1, child)``: the bonded parent ``P1`` stays
+in the third slot ``k``, and the stored dihedral equals the official torsion
+definition (e.g. ``chi1 = (N, CA, CB, CG)``).
 
 Backbone ``O``/``OXT`` are placed by the main-chain pass (Biopython convention
 ``(N, CA, C, O)``); hydrogens and Pro's virtual ring-closure atom ``NV`` are not
@@ -46,132 +54,136 @@ MAINCHAIN_ATOMS = frozenset(("N", "CA", "C", "O", "OXT"))
 
 #: Side-chain grow-path per residue: ``{res_name: ((i, j, k, l), ...)}``, one
 #: ``(i, j, k, l)`` atom-name quad per side-chain heavy atom ``l`` (atom ``k``
-#: is its bonded parent).  ``GLY`` has no side chain so its tuple is empty.
+#: is its bonded parent).  Quads are in the **official dihedral order**
+#: ``(P3, P2, P1, child)`` from Rosetta ICOOR, so the first side-chain quads
+#: equal the official chi definitions (``chi1 = (N, CA, CB, CG)``,
+#: ``chi2 = (CA, CB, CG, CD)``, ...).  ``GLY`` has no side chain so its tuple
+#: is empty.
 SIDE_CHAIN_IC_PATH = {
     "ALA": (
-        ("N", "C", "CA", "CB"),
+        ("C", "N", "CA", "CB"),
     ),
     "ARG": (
-        ("N", "C", "CA", "CB"),
-        ("CA", "N", "CB", "CG"),
-        ("CB", "CA", "CG", "CD"),
-        ("CG", "CB", "CD", "NE"),
-        ("CD", "CG", "NE", "CZ"),
-        ("NE", "CD", "CZ", "NH1"),
-        ("NE", "NH1", "CZ", "NH2"),
+        ("C", "N", "CA", "CB"),
+        ("N", "CA", "CB", "CG"),
+        ("CA", "CB", "CG", "CD"),
+        ("CB", "CG", "CD", "NE"),
+        ("CG", "CD", "NE", "CZ"),
+        ("CD", "NE", "CZ", "NH1"),
+        ("NH1", "NE", "CZ", "NH2"),
     ),
     "ASN": (
-        ("N", "C", "CA", "CB"),
-        ("CA", "N", "CB", "CG"),
-        ("CB", "CA", "CG", "OD1"),
-        ("CB", "OD1", "CG", "ND2"),
+        ("C", "N", "CA", "CB"),
+        ("N", "CA", "CB", "CG"),
+        ("CA", "CB", "CG", "OD1"),
+        ("OD1", "CB", "CG", "ND2"),
     ),
     "ASP": (
-        ("N", "C", "CA", "CB"),
-        ("CA", "N", "CB", "CG"),
-        ("CB", "CA", "CG", "OD1"),
-        ("CB", "OD1", "CG", "OD2"),
+        ("C", "N", "CA", "CB"),
+        ("N", "CA", "CB", "CG"),
+        ("CA", "CB", "CG", "OD1"),
+        ("OD1", "CB", "CG", "OD2"),
     ),
     "CYS": (
-        ("N", "C", "CA", "CB"),
-        ("CA", "N", "CB", "SG"),
+        ("C", "N", "CA", "CB"),
+        ("N", "CA", "CB", "SG"),
     ),
     "GLN": (
-        ("N", "C", "CA", "CB"),
-        ("CA", "N", "CB", "CG"),
-        ("CB", "CA", "CG", "CD"),
-        ("CG", "CB", "CD", "OE1"),
-        ("CG", "OE1", "CD", "NE2"),
+        ("C", "N", "CA", "CB"),
+        ("N", "CA", "CB", "CG"),
+        ("CA", "CB", "CG", "CD"),
+        ("CB", "CG", "CD", "OE1"),
+        ("OE1", "CG", "CD", "NE2"),
     ),
     "GLU": (
-        ("N", "C", "CA", "CB"),
-        ("CA", "N", "CB", "CG"),
-        ("CB", "CA", "CG", "CD"),
-        ("CG", "CB", "CD", "OE1"),
-        ("CG", "OE1", "CD", "OE2"),
+        ("C", "N", "CA", "CB"),
+        ("N", "CA", "CB", "CG"),
+        ("CA", "CB", "CG", "CD"),
+        ("CB", "CG", "CD", "OE1"),
+        ("OE1", "CG", "CD", "OE2"),
     ),
     "GLY": (),
     "HIS": (
-        ("N", "C", "CA", "CB"),
-        ("CA", "N", "CB", "CG"),
-        ("CB", "CA", "CG", "ND1"),
-        ("CG", "CB", "ND1", "CE1"),
-        ("ND1", "CG", "CE1", "NE2"),
-        ("CE1", "ND1", "NE2", "CD2"),
+        ("C", "N", "CA", "CB"),
+        ("N", "CA", "CB", "CG"),
+        ("CA", "CB", "CG", "ND1"),
+        ("CB", "CG", "ND1", "CE1"),
+        ("CG", "ND1", "CE1", "NE2"),
+        ("ND1", "CE1", "NE2", "CD2"),
     ),
     "ILE": (
-        ("N", "C", "CA", "CB"),
-        ("CA", "N", "CB", "CG1"),
-        ("CB", "CA", "CG1", "CD1"),
-        ("CA", "CG1", "CB", "CG2"),
+        ("C", "N", "CA", "CB"),
+        ("N", "CA", "CB", "CG1"),
+        ("CA", "CB", "CG1", "CD1"),
+        ("CG1", "CA", "CB", "CG2"),
     ),
     "LEU": (
-        ("N", "C", "CA", "CB"),
-        ("CA", "N", "CB", "CG"),
-        ("CB", "CA", "CG", "CD1"),
-        ("CB", "CD1", "CG", "CD2"),
+        ("C", "N", "CA", "CB"),
+        ("N", "CA", "CB", "CG"),
+        ("CA", "CB", "CG", "CD1"),
+        ("CD1", "CB", "CG", "CD2"),
     ),
     "LYS": (
-        ("N", "C", "CA", "CB"),
-        ("CA", "N", "CB", "CG"),
-        ("CB", "CA", "CG", "CD"),
-        ("CG", "CB", "CD", "CE"),
-        ("CD", "CG", "CE", "NZ"),
+        ("C", "N", "CA", "CB"),
+        ("N", "CA", "CB", "CG"),
+        ("CA", "CB", "CG", "CD"),
+        ("CB", "CG", "CD", "CE"),
+        ("CG", "CD", "CE", "NZ"),
     ),
     "MET": (
-        ("N", "C", "CA", "CB"),
-        ("CA", "N", "CB", "CG"),
-        ("CB", "CA", "CG", "SD"),
-        ("CG", "CB", "SD", "CE"),
+        ("C", "N", "CA", "CB"),
+        ("N", "CA", "CB", "CG"),
+        ("CA", "CB", "CG", "SD"),
+        ("CB", "CG", "SD", "CE"),
     ),
     "PHE": (
-        ("N", "C", "CA", "CB"),
-        ("CA", "N", "CB", "CG"),
-        ("CB", "CA", "CG", "CD1"),
-        ("CG", "CB", "CD1", "CE1"),
-        ("CD1", "CG", "CE1", "CZ"),
-        ("CE1", "CD1", "CZ", "CE2"),
-        ("CZ", "CE1", "CE2", "CD2"),
+        ("C", "N", "CA", "CB"),
+        ("N", "CA", "CB", "CG"),
+        ("CA", "CB", "CG", "CD1"),
+        ("CB", "CG", "CD1", "CE1"),
+        ("CG", "CD1", "CE1", "CZ"),
+        ("CD1", "CE1", "CZ", "CE2"),
+        ("CE1", "CZ", "CE2", "CD2"),
     ),
     "PRO": (
-        ("N", "C", "CA", "CB"),
-        ("CA", "N", "CB", "CG"),
-        ("CB", "CA", "CG", "CD"),
+        ("C", "N", "CA", "CB"),
+        ("N", "CA", "CB", "CG"),
+        ("CA", "CB", "CG", "CD"),
     ),
     "SER": (
-        ("N", "C", "CA", "CB"),
-        ("CA", "N", "CB", "OG"),
+        ("C", "N", "CA", "CB"),
+        ("N", "CA", "CB", "OG"),
     ),
     "THR": (
-        ("N", "C", "CA", "CB"),
-        ("CA", "N", "CB", "OG1"),
-        ("CA", "OG1", "CB", "CG2"),
+        ("C", "N", "CA", "CB"),
+        ("N", "CA", "CB", "OG1"),
+        ("OG1", "CA", "CB", "CG2"),
     ),
     "TRP": (
-        ("N", "C", "CA", "CB"),
-        ("CA", "N", "CB", "CG"),
-        ("CB", "CA", "CG", "CD1"),
-        ("CG", "CB", "CD1", "NE1"),
-        ("CD1", "CG", "NE1", "CE2"),
-        ("NE1", "CD1", "CE2", "CZ2"),
-        ("CE2", "NE1", "CZ2", "CH2"),
-        ("CZ2", "CE2", "CH2", "CZ3"),
-        ("CH2", "CZ2", "CZ3", "CE3"),
-        ("CZ3", "CH2", "CE3", "CD2"),
+        ("C", "N", "CA", "CB"),
+        ("N", "CA", "CB", "CG"),
+        ("CA", "CB", "CG", "CD1"),
+        ("CB", "CG", "CD1", "NE1"),
+        ("CG", "CD1", "NE1", "CE2"),
+        ("CD1", "NE1", "CE2", "CZ2"),
+        ("NE1", "CE2", "CZ2", "CH2"),
+        ("CE2", "CZ2", "CH2", "CZ3"),
+        ("CZ2", "CH2", "CZ3", "CE3"),
+        ("CH2", "CZ3", "CE3", "CD2"),
     ),
     "TYR": (
-        ("N", "C", "CA", "CB"),
-        ("CA", "N", "CB", "CG"),
-        ("CB", "CA", "CG", "CD1"),
-        ("CG", "CB", "CD1", "CE1"),
-        ("CB", "CD1", "CG", "CD2"),
-        ("CG", "CB", "CD2", "CE2"),
-        ("CD2", "CG", "CE2", "CZ"),
-        ("CE2", "CD2", "CZ", "OH"),
+        ("C", "N", "CA", "CB"),
+        ("N", "CA", "CB", "CG"),
+        ("CA", "CB", "CG", "CD1"),
+        ("CB", "CG", "CD1", "CE1"),
+        ("CD1", "CB", "CG", "CD2"),
+        ("CB", "CG", "CD2", "CE2"),
+        ("CG", "CD2", "CE2", "CZ"),
+        ("CD2", "CE2", "CZ", "OH"),
     ),
     "VAL": (
-        ("N", "C", "CA", "CB"),
-        ("CA", "N", "CB", "CG1"),
-        ("CA", "CG1", "CB", "CG2"),
+        ("C", "N", "CA", "CB"),
+        ("N", "CA", "CB", "CG1"),
+        ("CG1", "CA", "CB", "CG2"),
     ),
 }

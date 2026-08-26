@@ -36,7 +36,7 @@ def build(aa):
             if nm in coord or nm[0] not in HEAVY:
                 continue
             if p1 in coord and p2 in coord and p3 in coord:
-                coord[nm] = _place(coord[p3], coord[p2], coord[p1], ln, 180.0 - th, -dih)
+                coord[nm] = _place(coord[p3], coord[p2], coord[p1], ln, 180.0 - th, dih)
                 g = True
         if not g:
             break
