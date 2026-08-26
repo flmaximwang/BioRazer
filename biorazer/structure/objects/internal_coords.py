@@ -13,7 +13,7 @@ Attributes
 ----------
 atoms : list[AtomRecord]
     One entry per atom, carrying PDB-style annotations but no coordinates:
-    ``(insert_code, chain_id, res_name, res_id, name, element)``.
+    ``(ins_code, chain_id, res_name, res_id, name, element)``.
 anchor : dict[int, tuple[float,float,float]]
     ``{atom_index: (x,y,z)}``.  The anchor can be any atoms, but per the
     user's design it must be **3 consecutive atoms of a single dihedral**
@@ -111,18 +111,18 @@ def _dihedral(p0, p1, p2, p3):
     return float(np.degrees(np.arctan2(y, x)))
 
 
-class AtomRecord:
+class InternalCoordAtom:
     """A single atom's PDB-style annotation (no coordinates).
 
     Attribute access mirrors an ``AtomArray`` row: ``rec.chain_id = "B"`` etc.
     """
 
-    __slots__ = ("insert_code", "chain_id", "res_name", "res_id", "name",
+    __slots__ = ("ins_code", "chain_id", "res_name", "res_id", "name",
                  "element")
 
-    def __init__(self, insert_code="", chain_id="A", res_name="GLY", res_id=1,
+    def __init__(self, ins_code="", chain_id="A", res_name="GLY", res_id=1,
                  name="N", element="N"):
-        self.insert_code = insert_code
+        self.ins_code = ins_code
         self.chain_id = chain_id
         self.res_name = res_name
         self.res_id = res_id
@@ -132,7 +132,7 @@ class AtomRecord:
     @classmethod
     def from_atom(cls, atom_array, index):
         arr = atom_array
-        return cls(insert_code=str(arr.ins_code[index]),
+        return cls(ins_code=str(arr.ins_code[index]),
                    chain_id=str(arr.chain_id[index]),
                    res_name=str(arr.res_name[index]),
                    res_id=int(arr.res_id[index]),
@@ -143,30 +143,52 @@ class AtomRecord:
         return f"AtomRecord({self.chain_id}:{self.res_id}:{self.res_name}:{self.name})"
 
 
-class _AtomList(list):
-    """List of :class:`AtomRecord` whose array-like indexing returns *indices*.
+def _annotation_accessor(rec_attr, name, dtype, cast, doc):
+    """Build a property+setter mapping an atom annotation to a numpy array view.
 
-    Normal integer / slice indexing behaves exactly like a list (yields
-    ``AtomRecord`` objects), but indexing with a boolean mask or an integer
-    array returns the matching **atom ranks**, e.g.::
+    Mirrors ``AtomArray.<name>`` so filtering on an ``InternalCoord`` reads
+    naturally (``mask = ic.chain_id == "A"`` yields a boolean array over all
+    atoms).  The getter returns a numpy array; the setter accepts a scalar
+    (broadcast to every atom) or a length-``len(ic)`` sequence/array.
 
-        ic.atoms[ic.chain_id == "A"]   # -> [0, 1, 2, ...]
-        ic.atoms[np.array([0, 3])]     # -> [0, 3]
-
-    This lets you quickly locate the specific atoms that satisfy a predicate.
+    Parameters
+    ----------
+    rec_attr : str
+        Attribute name on each :class:`InternalCoordAtom`.
+    name : str
+        Public accessor name (for error messages).
+    dtype : numpy dtype or None
+        Array dtype for the getter.  ``None`` -> a per-atom-width ``U`` array.
+    cast : callable
+        Applied to each value on both get and set (e.g. ``int`` for ``res_id``).
+    doc : str
+        Docstring for the property.
     """
 
-    def __getitem__(self, key):
-        if isinstance(key, np.ndarray):
-            if key.dtype == bool:
-                if key.ndim != 1 or len(key) != len(self):
-                    raise ValueError(
-                        f"boolean mask must be 1-D of length {len(self)}, "
-                        f"got shape {key.shape}")
-                return np.nonzero(key)[0].tolist()
-            if key.dtype.kind in "iu":
-                return [int(i) for i in key]
-        return list.__getitem__(self, key)
+    def getter(self):
+        if not self.atoms:
+            return np.array([], dtype="U1" if dtype is None else dtype)
+        if dtype is None:
+            width = max(len(str(getattr(a, rec_attr))) for a in self.atoms)
+            return np.array([cast(getattr(a, rec_attr)) for a in self.atoms],
+                            dtype=f"U{width}")
+        return np.array([cast(getattr(a, rec_attr)) for a in self.atoms],
+                        dtype=dtype)
+
+    def setter(self, value):
+        n = len(self.atoms)
+        if isinstance(value, (str, bytes)):
+            vals = [value] * n
+        else:
+            vals = list(value)
+            if len(vals) != n:
+                raise ValueError(
+                    f"{name} must be a scalar or a sequence of length {n}, "
+                    f"got {len(vals)}")
+        for a, v in zip(self.atoms, vals):
+            setattr(a, rec_attr, cast(v))
+
+    return property(getter, setter, doc=doc)
 
 
 class InternalCoord:
@@ -177,7 +199,7 @@ class InternalCoord:
 
     def __init__(self, atoms=None, anchor=None, bond_distances=None,
                  bond_angles=None, dihedra=None):
-        self.atoms = _AtomList(atoms) if atoms is not None else _AtomList()
+        self.atoms = list(atoms) if atoms is not None else []
         self.anchor = anchor if anchor is not None else {}
         self.bond_distances = bond_distances if bond_distances is not None else {}
         self.bond_angles = bond_angles if bond_angles is not None else {}
@@ -293,39 +315,39 @@ class InternalCoord:
         Format: ``{chain_id}:{res_id}:{res_name}:{name}``, e.g. ``A:1:SER:N``.
         """
         a = self.atoms[i]
-        assert isinstance(a, AtomRecord)
+        assert isinstance(a, InternalCoordAtom)
         return f"{a.chain_id}:{a.res_id}:{a.res_name}:{a.name}"
 
-    @property
-    def chain_id(self):
-        """Chain ID of every atom, as a ``numpy.str_`` array.
-
-        Mirrors ``AtomArray.chain_id`` so that filtering is natural, e.g.
-        ``mask = ic.chain_id == "A"`` yields a boolean array over all atoms.
-        """
-        if not self.atoms:
-            return np.array([], dtype="U1")
-        width = max(len(a.chain_id) for a in self.atoms)
-        return np.array([a.chain_id for a in self.atoms], dtype=f"U{width}")
-
-    @chain_id.setter
-    def chain_id(self, value):
-        """Set the chain ID of every atom.
-
-        Accepts a single string (broadcast to all atoms) or a length-``len(ic)``
-        sequence/array of strings.
-        """
-        n = len(self.atoms)
-        if isinstance(value, (str, bytes)):
-            vals = [str(value)] * n
-        else:
-            vals = [str(v) for v in value]
-            if len(vals) != n:
-                raise ValueError(
-                    f"chain_id must be a scalar or a sequence of length {n}, "
-                    f"got {len(vals)}")
-        for a, v in zip(self.atoms, vals):
-            a.chain_id = v
+    # Per-atom annotation views, mirroring ``AtomArray``.  Each is a
+    # property+setter: ``ic.chain_id`` returns a numpy array over all atoms
+    # (so ``ic.chain_id == "A"`` yields a mask), and assigning broadcasts a
+    # scalar or takes a length-``len(ic)`` sequence.
+    chain_id = _annotation_accessor(
+        "chain_id", "chain_id", None, str,
+        'Chain ID of every atom as a numpy array; `ic.chain_id == "A"` '
+        "yields a mask.  Set with a scalar or a length-`len(ic)` sequence.")
+    res_id = _annotation_accessor(
+        "res_id", "res_id", np.int32, int,
+        "Residue ID of every atom as an int32 numpy array.  Set with a scalar "
+        "or a length-``len(ic)`` sequence.")
+    res_name = _annotation_accessor(
+        "res_name", "res_name", "U3", str,
+        "Residue name of every atom as a ``U3`` numpy array.  Set with a "
+        "scalar or a length-``len(ic)`` sequence.")
+    atom_name = _annotation_accessor(
+        "name", "atom_name", "U4", str,
+        "Atom name of every atom as a ``U4`` numpy array (mirrors "
+        "``AtomArray.atom_name``).  Set with a scalar or a length-``len(ic)`` "
+        "sequence.")
+    element = _annotation_accessor(
+        "element", "element", None, str,
+        "Element of every atom as a numpy array.  Set with a scalar or a "
+        "length-``len(ic)`` sequence.")
+    ins_code = _annotation_accessor(
+        "ins_code", "ins_code", None, str,
+        "Insertion code of every atom as a numpy array (mirrors "
+        "``AtomArray.ins_code``).  Set with a scalar or a length-``len(ic)`` "
+        "sequence.")
 
     def dihedra_pd(self):
         """Dihedrals as a pandas table (easy filtering).
@@ -482,7 +504,7 @@ class InternalCoord:
         aa.res_id = np.array([a.res_id for a in self.atoms], dtype=np.int32)
         aa.atom_name = np.array([a.name for a in self.atoms], dtype="U4")
         aa.element = np.array([a.element for a in self.atoms])
-        aa.ins_code = np.array([a.insert_code for a in self.atoms])
+        aa.ins_code = np.array([a.ins_code for a in self.atoms])
         return aa
 
     # ------------------------------------------------------------------ #
@@ -539,7 +561,7 @@ class InternalCoord:
         from biorazer.database.bond import AMINO_ACID_BOND_LENGTH
 
         n = len(arr)
-        atoms = [AtomRecord.from_atom(arr, i) for i in range(n)]
+        atoms = [InternalCoordAtom.from_atom(arr, i) for i in range(n)]
         ic = cls(atoms=atoms)
 
         def record(quad):
@@ -576,7 +598,7 @@ class InternalCoord:
         chain_keys = {}    # chain_id -> [keys in file order]
         for i in range(n):
             a = atoms[i]
-            key = (a.chain_id, a.res_id, a.insert_code)
+            key = (a.chain_id, a.res_id, a.ins_code)
             if key not in residues:
                 residues[key] = {"res_name": a.res_name.upper(), "atoms": {}}
                 chain_keys.setdefault(a.chain_id, []).append(key)
