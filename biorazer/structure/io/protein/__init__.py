@@ -15,7 +15,7 @@ modules by concern:
 from biotite.structure.io import pdb, pdbx
 from biotite.structure import AtomArray
 import biotite.structure as bio_struc
-from biorazer.database.amino_acid import AMINO_ACIDS_3TO1_UPPER
+from biorazer.database.alphabet import AMINO_ACIDS_3TO1_UPPER
 from biorazer.io import Converter
 
 from ._pdb_records import _format_link_records, _format_ssbond_records, _inject_seg_ids

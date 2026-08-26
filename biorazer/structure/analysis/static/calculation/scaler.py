@@ -4,7 +4,7 @@ import biotite.sequence as bio_seq
 from .. import report
 from ....selection.mask import complex
 from .array import sasa_array, buried_unsat_hbond, hbond
-from biorazer.database.amino_acid import TYPES2AA
+from biorazer.database.alphabet import TYPES2AA
 
 """
 Multiple calculation can be performed on a same array to return multiple scalar values.

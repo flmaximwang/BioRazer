@@ -1,7 +1,11 @@
-import numpy as np
-from biotite.sequence import LetterAlphabet
+"""1-letter and 3-letter amino-acid code maps.
 
-# --- from aa_list.py ---
+Split out of ``biorazer.database.amino_acid`` (originally ``aa_list.py``).
+The variants differ in the VALUE case only -- keys are always the standard
+upper-case form. 1TO3 has 3 value forms (MET/met/Met), 3TO1 has 2 (M/m).
+Use AMINO_ACIDS_1TO3_INITIAL_CAPITAL by default.
+"""
+
 AMINO_ACIDS_1LETTER = tuple("ACDEFGHIKLMNPQRSTVWY")
 AMINO_ACIDS_3LETTER = (
     "ALA",
@@ -26,9 +30,6 @@ AMINO_ACIDS_3LETTER = (
     "TYR",
 )
 
-# The variants differ in the VALUE case only -- keys are always the
-# standard upper-case form. 1TO3 has 3 value forms (MET/met/Met),
-# 3TO1 has 2 (M/m). Use AMINO_ACIDS_1TO3_INITIAL_CAPITAL by default.
 AMINO_ACIDS_1TO3_UPPER = {
     "A": "ALA",
     "C": "CYS",
@@ -143,39 +144,3 @@ AMINO_ACIDS_3TO1_LOWER = {
     "TRP": "w", "Trp": "w", "trp": "w",
     "TYR": "y", "Tyr": "y", "tyr": "y",
 }
-
-# --- from aa_types.py ---
-TYPES2AA = {
-    "hydrophobic": "AFILMPVWY",
-    "polar": "CDEGHKNRST",
-    "charged": "DEHKR",
-    "positive": "HKR",
-    "negative": "DE",
-    "aromatic": "FHWY",
-    "aliphatic": "AILMPV",
-    "small": "ACDGNPSTV",
-    "large": "EFHIKLRWY",
-    "all": "ACDEFGHIKLMNPQRSTVWY",
-}
-
-# --- from protein.py ---
-COMMON_AA_NAME1 = "ACDEFGHIKLMNPQRSTVWY"
-COMMON_AA_ALPHABET = LetterAlphabet(list(COMMON_AA_NAME1))
-HYDROPHOBIC_AA_NAME1 = "AILMFWYV"
-HYDROPHOBIC_AA_ALPHABET = LetterAlphabet(list(HYDROPHOBIC_AA_NAME1))
-POLAR_AA_NAME1 = "NQSTC"
-POLAR_AA_ALPHABET = LetterAlphabet(list(POLAR_AA_NAME1))
-POSITIVE_AA_NAME1 = "KRH"
-POSITIVE_AA_ALPHABET = LetterAlphabet(list(POSITIVE_AA_NAME1))
-NEGATIVE_AA_NAME1 = "DE"
-NEGATIVE_AA_ALPHABET = LetterAlphabet(list(NEGATIVE_AA_NAME1))
-APOLAR_AA_NAME1 = "AILMFWYVGP"
-APOLAR_AA_ALPHABET = LetterAlphabet(list(APOLAR_AA_NAME1))
-
-
-def sequences_to_symbols(sequences: list[str], AA_seq: str) -> str:
-    symbols = np.zeros((len(sequences[0]), len(AA_seq)), dtype=int)
-    for seq in sequences:
-        for i, aa in enumerate(seq):
-            symbols[i, AA_seq.index(aa)] += 1
-    return symbols

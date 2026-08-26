@@ -3,7 +3,7 @@ import numpy as np
 import biotite.structure as bio_struct
 import hydride
 
-from biorazer.database.amino_acid import AMINO_ACIDS_1TO3_UPPER
+from biorazer.database.alphabet import AMINO_ACIDS_1TO3_UPPER
 from biorazer.database.bond.backbone import (
     AMINO_ACID_BOND_LENGTH,
     AMINO_ACID_BOND_ANGLE,
@@ -393,7 +393,7 @@ def _residue_ca_index(ic, index, expected_name, param_name):
     for i, a in enumerate(ic.atoms):
         if (a.chain_id == target.chain_id
                 and a.res_id == target.res_id
-                and a.insert_code == target.insert_code
+                and a.ins_code == target.ins_code
                 and a.name == "CA"):
             return i
     raise ValueError(
