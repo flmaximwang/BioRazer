@@ -21,12 +21,16 @@ from __future__ import annotations
 
 import importlib
 import pathlib
-
-from biorazer.database.internal_coord_template import RESIDUES
-from biorazer.database.internal_coord_template._naming import template_token
+import sys
 
 REPO_ROOT = pathlib.Path(__file__).resolve().parent.parent
-PKG = REPO_ROOT / "biorazer/database/internal_coord_template"
+if str(REPO_ROOT) not in sys.path:
+    sys.path.insert(0, str(REPO_ROOT))
+
+from biorazer.database.molecule.icoor.protein.template import RESIDUES
+from biorazer.database.molecule.icoor.protein.template._naming import template_token
+
+PKG = REPO_ROOT / "biorazer/database/molecule/icoor/protein/template"
 
 GEN_MARKER = "# === GENERATED IC_* named templates - do not edit below ==="
 
@@ -57,7 +61,7 @@ def main():
     for resn in RESIDUES:
         path = PKG / f"{resn.lower()}.py"
         mod = importlib.import_module(
-            f"biorazer.database.internal_coord_template.{resn.lower()}")
+            f"biorazer.database.molecule.icoor.protein.template.{resn.lower()}")
         templates = getattr(mod, f"{resn}_TEMPLATES")
         text = path.read_text(encoding="utf-8")
         idx = text.find(GEN_MARKER)

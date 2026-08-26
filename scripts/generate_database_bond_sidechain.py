@@ -1,8 +1,28 @@
 # -*- coding: utf-8 -*-
-"""Emit biorazer/database/bond/sidechain.py from Rosetta fa_standard params."""
+"""Emit biorazer/database/molecule/bond/length/protein.py (sidechain part)
++ biorazer/database/molecule/bond/angle/protein.py (sidechain part)
+from Rosetta fa_standard params.
+
+Run (from the repo root)::
+
+    /opt/envs/BioRazer/bin/python scripts/generate_database_bond_sidechain.py > /tmp/sc.py
+
+The emitted text contains only the ``AMINO_ACID_SIDECHAIN_BOND`` and
+``AMINO_ACID_SIDECHAIN_BOND_ANGLE`` dicts (the ``{mean, std, lb, up, source,
+...}`` uniform record; std/lb/up = np.nan); paste them into the target
+modules' ``AMINO_ACID_SIDECHAIN_BOND`` / ``AMINO_ACID_SIDECHAIN_BOND_ANGLE``
+slots.
+"""
 import numpy as np
+import sys
+import pathlib
+
+REPO_ROOT = pathlib.Path(__file__).resolve().parent.parent
+if str(REPO_ROOT) not in sys.path:
+    sys.path.insert(0, str(REPO_ROOT))
+
 from biorazer.structure.objects.internal_coords import _place, _dihedral
-from biorazer.database.internal_coord_template._topology import SIDE_CHAIN_IC_PATH
+from biorazer.database.molecule.icoor.protein.topology import IC_PATH
 
 PARAMS = "/opt/Rosetta/rosetta.source.release-408/main/database/chemical/residue_type_sets/fa_standard/residue_types/l-caa/"
 HEAVY = set("CNOS")
@@ -52,49 +72,54 @@ def quad_geom(aa, coord, quad):
 def main():
     lines = []
     w = lines.append
-    w('# -*- coding: utf-8 -*-')
-    w('"""Amino-acid side-chain covalent bond lengths (Å) and bond angles (°).')
-    w("")
-    w('数据集来源与诚实性说明')
-    w('───────────────────────')
-    w('本模块记录 20 种标准氨基酸**侧链**(CA 的 CB 及以外重原子, 见')
-    w('`internal_coord_template._topology.SIDE_CHAIN_IC_PATH` 的生长路径)的理想键长与键角。')
-    w('数值为**理想点值 (ideal point values)**, 翻译自 Rosetta 408 的')
-    w('`fa_standard` 残基 .params (`ICOOR_INTERNAL`) 构建的规范残基几何 ——')
-    w('Rosetta 的主链/侧链理想几何源自 Engh & Huber (1991) (见')
-    w('`bond.backbone` 的交叉核对)。键长即 ICOOR 的 `d`, 键角即 `180° − theta`')
-    w('(解码后又在构建出的残基坐标上实测复核)。')
-    w("")
-    w('注意: 这里**没有**给出 Engh & Huber 的样本标准差 (std) —— Rosetta ICOOR')
-    w('只给理想点值, 不给 CSD sigma; 需要 std 时请以 E&H 1991 原始文献为准。')
-    w('键长单位 Å, 键角单位 **度 (degree)**。')
-    w("")
-    w('键/角的 key 采用 `SIDE_CHAIN_IC_PATH` 的生长四元组 (i,j,k,l): 从父原子')
-    w('(i,j,k) 生长出 l, 键 `(k,l)`, 键角 `(j,k,l)` (顶点在 k)。')
-    w('"""')
-    w("")
-    w("")
-    w('#: 每种氨基酸侧链生长的规范键长 (k,l) 与键角 (j,k,l)')
-    w('#: {(res_name): {(i,j,k,l)取原子名的三元/四元: {...}}}')
-    w('#: 含第一个 CB 生长四元组 (N,C,CA,CB) (其 CA-CB 键/角度亦见 bond.backbone)')
+    w('import numpy as np')
+    w('')
+    w('')
+    w('#: 每种氨基酸侧链生长的规范键长 (k,l)')
+    w('#: {(res_name): {(i,j,k,l)取原子名的四元组: {...}}}')
+    w('#: 含第一个 CB 生长四元组 (C,N,CA,CB) (其 CA-CB 键/角度亦见 generic 主表)。')
+    w('#: std/lb/up 为 np.nan (Rosetta ICOOR 只给理想点值, 无 CSD sigma)。')
     w('AMINO_ACID_SIDECHAIN_BOND = {')
     for aa in AAS:
         coord, _ = build_canonical(aa)
         w(f'    "{aa}": {{')
-        for quad in SIDE_CHAIN_IC_PATH[aa]:
+        for quad in IC_PATH[aa]:
             if not all(n in coord for n in quad):
                 continue
             blen, bang, _ = quad_geom(aa, coord, quad)
             i, j, k, l = quad
             quadkey = "(" + ", ".join(repr(n) for n in quad) + ")"
-            w('        %s: {"bond": (%r, %r), "value": %.4f, "mean": %.4f, '
+            w('        %s: {"bond": (%r, %r), "value": %.4f, "mean": %.4f, "std": np.nan, '
+              '"lb": np.nan, "up": np.nan, '
               '"angle_pair": (%r, %r, %r), "angle": %.2f, '
               '"note": "Rosetta fa_standard %s.params ICOOR ideal", '
               '"source": "rosetta_params_408"},'
               % (quadkey, k, l, blen, blen, j, k, l, bang, aa))
         w('    },')
     w('}')
-    w("")
+    w('')
+    w('')
+    w('#: 每种氨基酸侧链生长的规范键角 (j,k,l), 顶点在 k')
+    w('#: {(res_name): {(i,j,k,l)取原子名的四元组: {mean, std, lb, up, source, ...}}}')
+    w('#: 与 AMINO_ACID_SIDECHAIN_BOND 同 key (同一生长四元组); std/lb/up 为 np.nan。')
+    w('AMINO_ACID_SIDECHAIN_BOND_ANGLE = {')
+    for aa in AAS:
+        coord, _ = build_canonical(aa)
+        w(f'    "{aa}": {{')
+        for quad in IC_PATH[aa]:
+            if not all(n in coord for n in quad):
+                continue
+            _, bang, _ = quad_geom(aa, coord, quad)
+            i, j, k, l = quad
+            quadkey = "(" + ", ".join(repr(n) for n in quad) + ")"
+            w('        %s: {"angle_pair": (%r, %r, %r), "mean": %.2f, '
+              '"std": np.nan, "lb": np.nan, "up": np.nan, '
+              '"note": "Rosetta fa_standard %s.params ICOOR ideal", '
+              '"source": "rosetta_params_408"},'
+              % (quadkey, j, k, l, bang, aa))
+        w('    },')
+    w('}')
+    w('')
     w('BOND_SIDECHAIN_REFS = {')
     w('    "rosetta_params_408": "Rosetta 408 main/database/chemical/residue_type_sets/'
       'fa_standard/residue_types/l-caa/*.params (ICOOR_INTERNAL 理想键长/键角)。",')
