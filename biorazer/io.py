@@ -2,7 +2,6 @@ import io
 from contextlib import contextmanager
 from pathlib import Path
 from typing import Any, Generator, TextIO, cast
-from abc import abstractmethod
 
 class Converter:
     """
@@ -41,24 +40,45 @@ class Converter:
             if file_obj is not target:
                 file_obj.close()
 
-    @abstractmethod
     def read(self) -> Any:
         """
-        This method reads `self.input_io` and returns the desired dataclass.
-        """
+        Read `self.input_io` and return the desired dataclass.
 
-    @abstractmethod
+        Implemented by file/IO converters. In-memory converters (which bridge
+        two in-memory representations via :meth:`convert`) leave this unused.
+        """
+        raise NotImplementedError(
+            "read() is not implemented by this converter. A converter is "
+            "either an IO converter (implements read() and write()) or an "
+            "in-memory converter (implements convert())."
+        )
+
     def write(self, tmp) -> str | None:
         """
-        This method writes `tmp` into `self.output_io`.
+        Write `tmp` into `self.output_io`.
 
         Returns the written text when the target is a file-like object
-        (e.g. ``io.StringIO``), otherwise None.
+        (e.g. ``io.StringIO``), otherwise None. Implemented by file/IO
+        converters.
         """
+        raise NotImplementedError(
+            "write() is not implemented by this converter. A converter is "
+            "either an IO converter (implements read() and write()) or an "
+            "in-memory converter (implements convert())."
+        )
 
-    def convert(self, read_kwargs=None, write_kwargs=None):
+    def convert(self) -> Any:
         """
-        A pipeline to run self.read and self.write sequentially.
+        Perform a pure in-memory conversion of `self.input_io`.
+
+        This is for conversions that do NOT involve separate read()/write()
+        steps: `self.input_io` holds an in-memory source representation and
+        the method returns the transformed representation (e.g. the SMCRA <->
+        internal-coordinate bridge converters). Implemented by in-memory
+        converters; file/IO converters use read()/write() instead.
         """
-        tmp = self.read(**(read_kwargs or {}))
-        self.write(tmp, **(write_kwargs or {}))
+        raise NotImplementedError(
+            "convert() is not implemented by this converter. A converter is "
+            "either an IO converter (implements read() and write()) or an "
+            "in-memory converter (implements convert())."
+        )
