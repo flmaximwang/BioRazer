@@ -64,14 +64,15 @@ _COMMON_CHI_AXES = {
 
 
 def rotamer_names(resn):
-    """List of common rotamer names for a residue (chi is a first-class axis
-    where the residue has rotatable chi)."""
+    """List of common rotamer names for a residue, each with a ``"canonical"``
+    representative first (chi is a first-class axis where the residue has
+    rotatable chi)."""
     n = _COMMON_CHI_AXES.get(resn, 0)
     if n == 0:
         return ["canonical"]
     if n == 1:
-        return list(_ROT_BIN)
-    return [f"{a}/{b}" for a in _ROT_BIN for b in _ROT_BIN]
+        return ["canonical"] + list(_ROT_BIN)
+    return ["canonical"] + [f"{a}/{b}" for a in _ROT_BIN for b in _ROT_BIN]
 
 
 def rotamer_targets(resn, rotamer):
@@ -250,6 +251,77 @@ def build_template(resn, ss, rotamer="canonical"):
     coord = _apply_rotamer(resn, coord, rotamer_targets(resn, rotamer))
     t = ss_torsions(ss)
     return _measure_ic(resn, coord, ss, rotamer, t["phi"], t["psi"], t["omega"])
+
+
+def build_template_direct(resn, ss, rotamer="canonical"):
+    """Direct-fill an ``InternalCoord`` from the database tables -- no all-atom
+    Cartesian placement (the user's "just fill the parameters" model).
+
+    Only the anchor frame ``N/CA/C`` is placed -- the anchor is required by
+    :class:`~biorazer.structure.objects.InternalCoord` to locate the residue --
+    and the carbonyl ``O`` plus every side-chain atom are described purely by
+    their ``(bond, bond-angle, dihedral)`` entries taken straight from
+    ``bond.backbone`` / ``bond.sidechain`` / ``torsion_angle.sidechain``.
+
+    .. warning::
+        This path is **exact only for the canonical conformer**.  A rotamer is
+        a *rigid subtree rotation* about a chi bond, and the chi torsion
+        (``SIDECHAIN_CHI``, e.g. ``(N,CA,CB,OG)``) is **not a key of the stored
+        grow-dihedrals** (``SIDECHAIN_IC_DIHEDRAL`` keys them by the
+        ``SIDE_CHAIN_IC_PATH`` grow quad, e.g. ``(CA,N,CB,OG)``).  Setting chi
+        therefore shifts the stored grow-dihedral geometrically -- a value that
+        is not in any table -- so a pure table fill cannot reproduce a rotamer
+        conformer.  Hence this function only implements ``rotamer="canonical"``.
+    """
+    if rotamer != "canonical":
+        raise NotImplementedError(
+            f"build_template_direct supports only rotamer='canonical' "
+            f"(a rotamer is a rigid rotation; its stored grow-dihedrals must be "
+            f"measured from geometry -- use build_template).")
+
+    bl = AMINO_ACID_BOND_LENGTH
+    ba = AMINO_ACID_BOND_ANGLE
+
+    order = ["N", "CA", "C", "O"]
+    seen = set(order)
+    for quad in SIDE_CHAIN_IC_PATH[resn]:
+        if quad[3] not in seen:
+            order.append(quad[3])
+            seen.add(quad[3])
+    atoms = [AtomRecord(res_name=resn, name=nm, element=_element(nm),
+                        chain_id="A", res_id=1) for nm in order]
+    ic = InternalCoord(atoms=atoms)
+    idx = {nm: n for n, nm in enumerate(order)}
+
+    # anchor frame: N at origin, CA along +x, C from CA-C length + N-CA-C angle
+    ic.anchor[idx["N"]] = (0.0, 0.0, 0.0)
+    ca = np.array([bl[("N", "CA")]["mean"], 0.0, 0.0], float)
+    ic.anchor[idx["CA"]] = tuple(ca)
+    ang = np.radians(180.0 - ba[("N", "CA", "C")]["mean"])
+    c = ca + bl[("CA", "C")]["mean"] * np.array([np.cos(ang), np.sin(ang), 0.0])
+    ic.anchor[idx["C"]] = tuple(c)
+
+    # carbonyl O branch (N, CA, C, O): trans
+    ic.bond_distances[(idx["C"], idx["O"])] = bl[("C", "O")]["mean"]
+    ic.bond_angles[(idx["CA"], idx["C"], idx["O"])] = ba[("CA", "C", "O")]["mean"]
+    ic.dihedra[(idx["N"], idx["CA"], idx["C"], idx["O"])] = 180.0
+
+    # side chain straight from the tables
+    sc_bond = AMINO_ACID_SIDECHAIN_BOND[resn]
+    for quad in SIDE_CHAIN_IC_PATH[resn]:
+        entry = sc_bond[quad]
+        i, j, k, l = (idx[nm] for nm in quad)
+        ic.bond_distances[(k, l)] = entry["mean"]
+        ic.bond_angles[(j, k, l)] = entry["angle"]
+        ic.dihedra[(i, j, k, l)] = SIDECHAIN_IC_DIHEDRAL[resn][quad]
+
+    t = ss_torsions(ss)
+    ic.ss = ss
+    ic.phi = float(t["phi"])
+    ic.psi = float(t["psi"])
+    ic.omega = float(t["omega"])
+    ic.rotamer = "canonical"
+    return ic
 
 
 def make_residue_templates(resn):
