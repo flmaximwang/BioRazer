@@ -532,6 +532,22 @@ class InternalCoord:
         Anchors default to the first three backbone atoms ``N, CA, C`` of every
         chain (one connected-component root per chain).
 
+        Anchor-frame geometry is recorded so the anchor is a fully-specified
+        rigid body: the ``N-CA`` and ``CA-C`` bonds of the anchor triple go into
+        ``bond_distances`` and the ``N-CA-C`` bond angle into ``bond_angles``.
+        (The peptide ``C_i - N_{i+1}`` bond is recorded by the cross-residue
+        quads as usual; only the anchor triple itself has no dihedral, which is
+        fine -- a dihedral needs four atoms, and the anchor is a rigid frame
+        with no parent.)  This keeps ``anchor`` self-describing: a ``to_coords``
+        round-trip on the anchor atoms alone needs no extra bookkeeping, and
+        downstream code that modifies anchor positions can always recover the
+        pair distances from the bond map.  These two records are set by
+        :func:`record` for every quad that grows one of the anchor atoms (the
+        carbonyl ``O`` branch and the peptide link), and any remaining missing
+        bond of the anchor triple itself (``N-CA`` or ``CA-C`` of a terminal
+        residue, or of a chain that never grows) is filled at the end of the
+        per-chain loop.
+
         For a **general graph** (ligands, rings, arbitrary connectivity) pass
         explicit ``quads`` (a list of ``(i, j, k, l)`` atom-index quadruples) --
         the generic path; its anchors default to ``{0: first atom}``.
@@ -591,6 +607,29 @@ class InternalCoord:
                 ic.anchor = {0: tuple(np.asarray(arr.coord[0], float))}
             return ic
 
+        def fill_anchor_geometry():
+            """Record the anchor triple's own bonds (N-CA, CA-C) and its bond
+            angle (N-CA-C) if not already covered by a grow quad.
+
+            ``record`` stores ``bond_distances[(k, l)]`` and
+            ``bond_angles[(j, k, l)]`` for every quad, so once the anchor atoms
+            participate in any quad as parents these entries exist.  This fills
+            the remaining holes so ``anchor`` is a fully-specified rigid body:
+            the two anchor bonds and the one anchor angle are always queryable
+            from the maps.
+            """
+            for i, j in ((nN, nCA), (nCA, nC)):
+                if (i, j) not in ic.bond_distances:
+                    ic.bond_distances[(i, j)] = float(np.linalg.norm(
+                        np.asarray(arr.coord[j], float)
+                        - np.asarray(arr.coord[i], float)))
+            if (nN, nCA, nC) not in ic.bond_angles:
+                v1 = np.asarray(arr.coord[nN], float) - np.asarray(arr.coord[nCA], float)
+                v2 = np.asarray(arr.coord[nC], float) - np.asarray(arr.coord[nCA], float)
+                cos = np.dot(v1, v2) / (np.linalg.norm(v1) * np.linalg.norm(v2))
+                ic.bond_angles[(nN, nCA, nC)] = float(np.degrees(
+                    np.arccos(np.clip(cos, -1, 1))))
+
         # ---- protein-aware two-pass build --------------------------------
         # Group atoms into residues (chain_id, res_id, ins_code), preserving
         # atom order, and map atom name -> atom index within each residue.
@@ -623,6 +662,13 @@ class InternalCoord:
                         nCA, tuple(np.asarray(arr.coord[nCA], float)))
                     ic.anchor.setdefault(
                         nC, tuple(np.asarray(arr.coord[nC], float)))
+
+                # anchor triple must be a fully-specified rigid body: its own
+                # N-CA / CA-C bonds and N-CA-C angle.  ``record`` already
+                # covers them whenever a quad grows one of these atoms (the
+                # carbonyl O branch or the peptide link); this fills any hole
+                # (terminal residue / chain with no growth).
+                fill_anchor_geometry()
 
                 # carbonyl O (and C-terminal OXT) as branches off C
                 if "O" in res:
