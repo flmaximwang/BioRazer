@@ -19,4 +19,5 @@ from .backbone import (  # noqa: F401
     BB_TORSION_REFS,
     OMEGA_TRANS,
     OMEGA_CIS,
+    MAINCHAIN_TORSION_DEFINITIONS,
 )

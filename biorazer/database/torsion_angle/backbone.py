@@ -237,3 +237,16 @@ BB_TORSION_REFS = {
 # omega 肽键近似平面 trans=180°; cis 极少, 主要 cis-Pro。
 OMEGA_TRANS = {"mean": 180.0, "std": 6.0, "lb": 170.0, "ub": 190.0}
 OMEGA_CIS = {"mean": 0.0, "std": 6.0, "lb": -6.0, "ub": 6.0}
+
+#: 主链二面角的官方四原子定义 (IUPAC 惯例)。
+#:
+#: ``{type: 原子名四元组}``, 原子顺序即官方定义顺序:
+#:
+#: * ``phi``   = (C_{i-1}, N_i, CA_i, C_i)       —— 绕 N-CA 键
+#: * ``psi``   = (N_i, CA_i, C_i, N_{i+1})       —— 绕 CA-C 键
+#: * ``omega`` = (CA_i, C_i, N_{i+1}, CA_{i+1})   —— 绕 C-N 肽键
+MAINCHAIN_TORSION_DEFINITIONS = {
+    "phi":   ("C", "N", "CA", "C"),
+    "psi":   ("N", "CA", "C", "N"),
+    "omega": ("CA", "C", "N", "CA"),
+}

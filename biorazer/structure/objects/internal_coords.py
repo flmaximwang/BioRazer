@@ -330,17 +330,57 @@ class InternalCoord:
     def dihedra_pd(self):
         """Dihedrals as a pandas table (easy filtering).
 
-        Columns: ``i, j, k, l, dihedral`` -- the four atoms (as repr tags) and
-        the dihedral angle in **degree**.
+        Columns: ``i, j, k, l, dihedral, type`` -- the four atoms (as repr
+        tags), the dihedral angle in **degree**, and the torsion ``type``
+        annotated from the official definitions:
+
+        * backbone ``phi`` / ``psi`` / ``omega`` --
+          :data:`~biorazer.database.torsion_angle.backbone.MAINCHAIN_TORSION_DEFINITIONS`
+          (IUPAC: ``phi = C_{i-1}-N_i-CA_i-C_i``, ``psi = N_i-CA_i-C_i-N_{i+1}``,
+          ``omega = CA_i-C_i-N_{i+1}-CA_{i+1}``);
+        * side chain ``chi1``..``chi4`` --
+          :data:`~biorazer.database.torsion_angle.sidechain.SIDECHAIN_CHI`
+          (official Rosetta ``CHI`` rows, per residue).
+
+        ``from_atomarray`` records backbone quads in the official atom order,
+        so ``phi``/``psi``/``omega`` annotate directly; side-chain quads are
+        stored in the official ICOOR order (bonded parent in slot ``k``), so
+        the first quads equal the official chi definitions.  Dihedrals that
+        match no official torsion (e.g. the carbonyl ``O`` branch
+        ``(N, CA, C, O)``) get an empty ``type``.
         """
         import pandas as pd
 
         rows = [
             (self.atom_repr(i), self.atom_repr(j), self.atom_repr(k),
-             self.atom_repr(l), ang)
+             self.atom_repr(l), ang, self._torsion_type(i, j, k, l))
             for (i, j, k, l), ang in self.dihedra.items()
         ]
-        return pd.DataFrame(rows, columns=["i", "j", "k", "l", "dihedral"])
+        return pd.DataFrame(rows, columns=["i", "j", "k", "l", "dihedral",
+                                           "type"])
+
+    def _torsion_type(self, i, j, k, l):
+        """Official torsion name for the dihedral ``(i, j, k, l)``.
+
+        ``phi`` / ``psi`` / ``omega`` / ``chi1``..``chi4`` by **exact
+        atom-name sequence** against the official definitions
+        (``MAINCHAIN_TORSION_DEFINITIONS`` / ``SIDECHAIN_CHI``); ``""`` when
+        no official torsion matches.
+        """
+        from biorazer.database.torsion_angle.backbone import (
+            MAINCHAIN_TORSION_DEFINITIONS,
+        )
+        from biorazer.database.torsion_angle.sidechain import SIDECHAIN_CHI
+
+        names = tuple(self.atoms[x].name for x in (i, j, k, l))
+        for ttype, def_names in MAINCHAIN_TORSION_DEFINITIONS.items():
+            if names == def_names:
+                return ttype
+        resn = self.atoms[i].res_name.upper()
+        for n, chi_quad in enumerate(SIDECHAIN_CHI.get(resn, [])):
+            if names == chi_quad:
+                return f"chi{n + 1}"
+        return ""
 
     def bond_distances_pd(self):
         """Bond lengths as a pandas table (easy filtering).
