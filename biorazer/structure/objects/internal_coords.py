@@ -143,6 +143,32 @@ class AtomRecord:
         return f"AtomRecord({self.chain_id}:{self.res_id}:{self.res_name}:{self.name})"
 
 
+class _AtomList(list):
+    """List of :class:`AtomRecord` whose array-like indexing returns *indices*.
+
+    Normal integer / slice indexing behaves exactly like a list (yields
+    ``AtomRecord`` objects), but indexing with a boolean mask or an integer
+    array returns the matching **atom ranks**, e.g.::
+
+        ic.atoms[ic.chain_id == "A"]   # -> [0, 1, 2, ...]
+        ic.atoms[np.array([0, 3])]     # -> [0, 3]
+
+    This lets you quickly locate the specific atoms that satisfy a predicate.
+    """
+
+    def __getitem__(self, key):
+        if isinstance(key, np.ndarray):
+            if key.dtype == bool:
+                if key.ndim != 1 or len(key) != len(self):
+                    raise ValueError(
+                        f"boolean mask must be 1-D of length {len(self)}, "
+                        f"got shape {key.shape}")
+                return np.nonzero(key)[0].tolist()
+            if key.dtype.kind in "iu":
+                return [int(i) for i in key]
+        return list.__getitem__(self, key)
+
+
 class InternalCoord:
     """Internal-coordinate (generative) description of a structure.
 
@@ -151,7 +177,7 @@ class InternalCoord:
 
     def __init__(self, atoms=None, anchor=None, bond_distances=None,
                  bond_angles=None, dihedra=None):
-        self.atoms = atoms if atoms is not None else []
+        self.atoms = _AtomList(atoms) if atoms is not None else _AtomList()
         self.anchor = anchor if anchor is not None else {}
         self.bond_distances = bond_distances if bond_distances is not None else {}
         self.bond_angles = bond_angles if bond_angles is not None else {}
@@ -160,8 +186,56 @@ class InternalCoord:
     def __len__(self):
         return len(self.atoms)
 
-    def __getitem__(self, i):
-        return self.atoms[i]
+    def __getitem__(self, key):
+        """Select atoms by integer, slice, or boolean / index array.
+
+        * ``ic[i]`` (int) -> the ``AtomRecord`` at rank ``i`` (as before).
+        * ``ic[mask]`` (boolean array of length ``len(ic)``), ``ic[idx]``
+          (integer index array), or ``ic[slice]`` -> **a new ``InternalCoord``**
+          restricted to the selected atoms.  Its connectivity maps
+          (``dihedra``/``bond_angles``/``bond_distances``) and ``anchor`` are
+          reindexed to the new 0-based numbering; any map entries touching
+          atoms outside the selection are dropped.
+        """
+        if isinstance(key, (int, np.integer)):
+            return self.atoms[int(key)]
+        if isinstance(key, slice):
+            sel = list(range(*key.indices(len(self.atoms))))
+            return self._subset(sel)
+        key = np.asarray(key)
+        if key.dtype == bool:
+            if key.ndim != 1 or len(key) != len(self.atoms):
+                raise ValueError(
+                    f"boolean mask must be 1-D of length {len(self.atoms)}, "
+                    f"got shape {key.shape}")
+            sel = np.nonzero(key)[0].tolist()
+            return self._subset(sel)
+        if key.dtype.kind in "iu":
+            return self._subset([int(i) for i in key])
+        raise TypeError(
+            f"index must be int, slice, boolean mask, or integer array; "
+            f"got {type(key).__name__}")
+
+    def _subset(self, sel):
+        """New :class:`InternalCoord` restricted to atom ranks ``sel``.
+
+        Connectivity maps and the anchor are reindexed to the new 0-based
+        numbering; entries touching atoms outside ``sel`` are dropped.
+        """
+        remap = {old: new for new, old in enumerate(sel)}
+        new_ic = type(self)(atoms=[self.atoms[i] for i in sel])
+        for (i, j), d in self.bond_distances.items():
+            if i in remap and j in remap:
+                new_ic.bond_distances[(remap[i], remap[j])] = d
+        for (i, j, k), ang in self.bond_angles.items():
+            if i in remap and j in remap and k in remap:
+                new_ic.bond_angles[(remap[i], remap[j], remap[k])] = ang
+        for (i, j, k, l), dih in self.dihedra.items():
+            if all(x in remap for x in (i, j, k, l)):
+                new_ic.dihedra[(remap[i], remap[j], remap[k], remap[l])] = dih
+        new_ic.anchor = {remap[i]: c for i, c in self.anchor.items()
+                         if i in remap}
+        return new_ic
 
     # ------------------------------------------------------------------ #
     #  atom representation + pandas-table views
@@ -172,7 +246,39 @@ class InternalCoord:
         Format: ``{chain_id}:{res_id}:{res_name}:{name}``, e.g. ``A:1:SER:N``.
         """
         a = self.atoms[i]
+        assert isinstance(a, AtomRecord)
         return f"{a.chain_id}:{a.res_id}:{a.res_name}:{a.name}"
+
+    @property
+    def chain_id(self):
+        """Chain ID of every atom, as a ``numpy.str_`` array.
+
+        Mirrors ``AtomArray.chain_id`` so that filtering is natural, e.g.
+        ``mask = ic.chain_id == "A"`` yields a boolean array over all atoms.
+        """
+        if not self.atoms:
+            return np.array([], dtype="U1")
+        width = max(len(a.chain_id) for a in self.atoms)
+        return np.array([a.chain_id for a in self.atoms], dtype=f"U{width}")
+
+    @chain_id.setter
+    def chain_id(self, value):
+        """Set the chain ID of every atom.
+
+        Accepts a single string (broadcast to all atoms) or a length-``len(ic)``
+        sequence/array of strings.
+        """
+        n = len(self.atoms)
+        if isinstance(value, (str, bytes)):
+            vals = [str(value)] * n
+        else:
+            vals = [str(v) for v in value]
+            if len(vals) != n:
+                raise ValueError(
+                    f"chain_id must be a scalar or a sequence of length {n}, "
+                    f"got {len(vals)}")
+        for a, v in zip(self.atoms, vals):
+            a.chain_id = v
 
     def dihedra_pd(self):
         """Dihedrals as a pandas table (easy filtering).
