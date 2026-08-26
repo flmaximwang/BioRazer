@@ -1,3 +1,6 @@
+import io
+import os
+import tempfile
 from pathlib import Path
 import numpy as np
 from biotite.structure.io import pdb, pdbx
@@ -233,3 +236,257 @@ class Pdb_StrDict(Converter):
                 res[chain_id] = sequence.replace("-", "")
 
         return res
+
+
+# ---------------------------------------------------------------------------
+# Optional-dependency converters: biopython internal coords / PyRosetta Pose
+#
+# These converters build representations that require extra packages.
+# biopython (Bio.PDB.internal_coords) is a CORE dependency of biorazer, so the
+# internal-coordinate converters are always available (the lazy import below is
+# just defensive). PyRosetta, however, is NOT a core dependency (it is not on
+# PyPI), so all PyRosetta imports are LAZY: importing this module never fails
+# when pyrosetta is missing -- the ImportError is raised only when a Pose
+# converter is actually used. Declare pyrosetta via the ``pyrosetta`` extra in
+# pyproject.toml.
+# ---------------------------------------------------------------------------
+
+
+def _import_internal_coords():
+    """Import the Bio.PDB machinery used by the internal-coordinate converters."""
+    try:
+        from Bio.PDB import MMCIFIO, MMCIFParser, PDBIO, PDBParser
+        from Bio.PDB import Model as BioModel, Structure as BioStructure
+        from Bio.PDB.internal_coords import IC_Chain
+    except ImportError as e:  # pragma: no cover - biopython is a core dependency
+        raise ImportError(
+            "Biopython is required for the internal-coordinate converters "
+            "(Pdb_InternalCoord / Cif_InternalCoord / InternalCoord_Pdb / "
+            "InternalCoord_Cif); it is a core dependency of biorazer."
+        ) from e
+    return PDBParser, MMCIFParser, PDBIO, MMCIFIO, BioStructure, BioModel, IC_Chain
+
+
+def _ic_chains(structure, IC_Chain):
+    """Build one ``IC_Chain`` per chain (first model), converting XYZ -> internal coords."""
+    chains = []
+    model = next(iter(structure))
+    for chain in model:
+        ic = IC_Chain(chain)
+        ic.atom_to_internal_coordinates()
+        chains.append(ic)
+    return chains
+
+
+def _rebuild_structure(ic_chains, BioStructure, BioModel):
+    """
+    Regenerate Cartesian coords from a chain's internal coords and reassemble
+    a ``Bio.PDB.Structure`` holding all the (rebuilt) chains.
+    """
+    if not isinstance(ic_chains, (list, tuple)):
+        ic_chains = [ic_chains]
+    for ic in ic_chains:
+        ic.internal_to_atom_coordinates()
+    structure = BioStructure.Structure("biorazer")
+    model = BioModel.Model(0)
+    for ic in ic_chains:
+        chain = ic.chain
+        if chain.parent is not None:
+            chain.parent.detach_child(chain.id)
+        model.add(chain)
+    structure.add(model)
+    return structure
+
+
+def _written_text(output_io):
+    """Return the written text when the target is an ``io.StringIO``, else None."""
+    if isinstance(output_io, io.StringIO):
+        return output_io.getvalue()
+    return None
+
+
+def _io_target(output_io):
+    """Bio.PDB PDBIO/MMCIFIO accept a str filename or a file object (not a Path)."""
+    return str(output_io) if isinstance(output_io, Path) else output_io
+
+
+class Pdb_InternalCoord(Converter):
+    """
+    Converts a PDB file to biopython's internal-coordinate representation.
+
+    Reads the file with ``Bio.PDB.PDBParser`` and returns a list of
+    :class:`Bio.PDB.internal_coords.IC_Chain` (one per chain of the first
+    model), each with its Cartesian coordinates already converted to
+    internal/torsion coordinates via ``atom_to_internal_coordinates``.
+    """
+
+    def read(self, **kwargs):
+        PDBParser, _, _, _, _, _, IC_Chain = _import_internal_coords()
+        parser = PDBParser(QUIET=True)
+        structure = parser.get_structure("biorazer", self.input_io)
+        return _ic_chains(structure, IC_Chain)
+
+
+class Cif_InternalCoord(Converter):
+    """
+    Converts an mmCIF file to biopython's internal-coordinate representation.
+
+    Reads the file with ``Bio.PDB.MMCIFParser`` and returns a list of
+    :class:`Bio.PDB.internal_coords.IC_Chain` (one per chain of the first
+    model), each with its Cartesian coordinates already converted to
+    internal/torsion coordinates.
+    """
+
+    def read(self, **kwargs):
+        _, MMCIFParser, _, _, _, _, IC_Chain = _import_internal_coords()
+        parser = MMCIFParser(QUIET=True)
+        structure = parser.get_structure("biorazer", self.input_io)
+        return _ic_chains(structure, IC_Chain)
+
+
+class InternalCoord_Pdb(Converter):
+    """
+    Regenerates a PDB file from biopython's internal-coordinate representation.
+
+    ``tmp`` is an :class:`Bio.PDB.internal_coords.IC_Chain` or a list of them
+    (as returned by :class:`Pdb_InternalCoord` / :class:`Cif_InternalCoord`).
+    Each chain is rebuilt back to Cartesian coordinates from its
+    internal/torsion coordinates via ``internal_to_atom_coordinates`` and the
+    chains are written as a single PDB file.
+    """
+
+    def write(self, tmp, **kwargs):
+        _, _, PDBIO, _, BioStructure, BioModel, _ = _import_internal_coords()
+        structure = _rebuild_structure(tmp, BioStructure, BioModel)
+        writer = PDBIO()
+        writer.set_structure(structure)
+        writer.save(_io_target(self.output_io))
+        return _written_text(self.output_io)
+
+
+class InternalCoord_Cif(Converter):
+    """
+    Regenerates an mmCIF file from biopython's internal-coordinate
+    representation (the inverse of :class:`Cif_InternalCoord`).
+    """
+
+    def write(self, tmp, **kwargs):
+        _, _, _, MMCIFIO, BioStructure, BioModel, _ = _import_internal_coords()
+        structure = _rebuild_structure(tmp, BioStructure, BioModel)
+        writer = MMCIFIO()
+        writer.set_structure(structure)
+        writer.save(_io_target(self.output_io))
+        return _written_text(self.output_io)
+
+
+_PYROSETTA_INITIALIZED = False
+
+
+def _import_pyrosetta():
+    """Lazily import PyRosetta, raising an informative ImportError if missing."""
+    try:
+        import pyrosetta
+    except ImportError as e:
+        raise ImportError(
+            "PyRosetta is required for the Pose converters (Pdb_Pose / Cif_Pose / "
+            "Pose_Pdb / Pose_Cif). PyRosetta is not on PyPI; install it, e.g. via "
+            "conda (-c https://conda.rosettacommons.org -c conda-forge pyrosetta) or "
+            "from a pyrosetta wheel, then `pip install .[pyrosetta]`."
+        ) from e
+    return pyrosetta
+
+
+def _ensure_pyrosetta_init():
+    """Call ``pyrosetta.init`` once per process (it is process-global state)."""
+    global _PYROSETTA_INITIALIZED
+    if _PYROSETTA_INITIALIZED:
+        return
+    _import_pyrosetta().init("-mute all", silent=True)
+    _PYROSETTA_INITIALIZED = True
+
+
+def _pose_from_io(input_io, suffix):
+    """Read a PyRosetta Pose from a str/Path (auto-detected by extension) or StringIO."""
+    pyrosetta = _import_pyrosetta()
+    _ensure_pyrosetta_init()
+    if isinstance(input_io, (str, Path)):
+        return pyrosetta.pose_from_file(str(input_io))
+    # io.StringIO: PyRosetta needs a real file, so stage the text with a
+    # format suffix so pose_from_file can auto-detect the format.
+    with tempfile.NamedTemporaryFile(suffix=suffix, delete=False) as fh:
+        fh.write(input_io.getvalue().encode("utf-8"))
+        name = fh.name
+    try:
+        return pyrosetta.pose_from_file(name)
+    finally:
+        os.remove(name)
+
+
+def _dump_pose(pose, output_io, suffix):
+    """Write a PyRosetta Pose to a str/Path or StringIO, in PDB or mmCIF format."""
+    if isinstance(output_io, (str, Path)):
+        if suffix == ".pdb":
+            pose.dump_pdb(str(output_io))
+        else:
+            pose.dump_cif(str(output_io))
+        return None
+    # io.StringIO: dump to a temp file, then read the text back.
+    with tempfile.NamedTemporaryFile(suffix=suffix, delete=False) as fh:
+        name = fh.name
+    try:
+        if suffix == ".pdb":
+            pose.dump_pdb(name)
+        else:
+            pose.dump_cif(name)
+        with open(name, "r") as fh:
+            output_io.write(fh.read())
+    finally:
+        os.remove(name)
+    return output_io.getvalue()
+
+
+class Pdb_Pose(Converter):
+    """
+    Converts a PDB file to a PyRosetta :class:`rosetta.core.pose.Pose`.
+
+    The input may be a file path (format detected by extension) or an
+    ``io.StringIO``. ``pyrosetta.init`` is called automatically (once per
+    process) if it has not been already.
+    """
+
+    def read(self, **kwargs):
+        return _pose_from_io(self.input_io, ".pdb")
+
+
+class Cif_Pose(Converter):
+    """
+    Converts an mmCIF file to a PyRosetta :class:`rosetta.core.pose.Pose`.
+
+    The input may be a file path (format detected by extension) or an
+    ``io.StringIO``. ``pyrosetta.init`` is called automatically (once per
+    process) if it has not been already.
+    """
+
+    def read(self, **kwargs):
+        return _pose_from_io(self.input_io, ".cif")
+
+
+class Pose_Pdb(Converter):
+    """
+    Writes a PyRosetta :class:`rosetta.core.pose.Pose` as a PDB file
+    (the inverse of :class:`Pdb_Pose`).
+    """
+
+    def write(self, tmp, **kwargs):
+        return _dump_pose(tmp, self.output_io, ".pdb")
+
+
+class Pose_Cif(Converter):
+    """
+    Writes a PyRosetta :class:`rosetta.core.pose.Pose` as an mmCIF file
+    (the inverse of :class:`Cif_Pose`).
+    """
+
+    def write(self, tmp, **kwargs):
+        return _dump_pose(tmp, self.output_io, ".cif")
+
