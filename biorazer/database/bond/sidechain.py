@@ -4,7 +4,7 @@
 数据集来源与诚实性说明
 ───────────────────────
 本模块记录 20 种标准氨基酸**侧链**(CA 的 CB 及以外重原子, 见
-`amino_acid_internal_coords.SIDE_CHAIN_IC_PATH` 的生长路径)的理想键长与键角。
+`internal_coord_template._topology.SIDE_CHAIN_IC_PATH` 的生长路径)的理想键长与键角。
 数值为**理想点值 (ideal point values)**, 翻译自 Rosetta 408 的
 `fa_standard` 残基 .params (`ICOOR_INTERNAL`) 构建的规范残基几何 ——
 Rosetta 的主链/侧链理想几何源自 Engh & Huber (1991) (见

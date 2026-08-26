@@ -33,7 +33,7 @@ import copy
 import numpy as np
 
 from biorazer.structure.objects.internal_coords import InternalCoord, AtomRecord, _place, _dihedral
-from biorazer.database.amino_acid_internal_coords import SIDE_CHAIN_IC_PATH
+from biorazer.database.internal_coord_template._topology import SIDE_CHAIN_IC_PATH
 from biorazer.database.bond.backbone import AMINO_ACID_BOND_LENGTH, AMINO_ACID_BOND_ANGLE
 from biorazer.database.bond.sidechain import AMINO_ACID_SIDECHAIN_BOND
 from biorazer.database.torsion_angle.backbone import SS_BB_TORSION_ANGLE

@@ -3,7 +3,7 @@
 canonical IC-path sidechain dihedrals (measured from Rosetta ideal build)."""
 import numpy as np
 from biorazer.structure.objects.internal_coords import _place, _dihedral
-from biorazer.database.amino_acid_internal_coords import SIDE_CHAIN_IC_PATH
+from biorazer.database.internal_coord_template._topology import SIDE_CHAIN_IC_PATH
 
 PARAMS = "/opt/Rosetta/rosetta.source.release-408/main/database/chemical/residue_type_sets/fa_standard/residue_types/l-caa/"
 HEAVY = set("CNOS")

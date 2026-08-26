@@ -48,6 +48,7 @@ from ._builder import (  # noqa: F401  (re-exported helpers)
     rotamer_names,
     ss_torsions,
 )
+from ._topology import MAINCHAIN_ATOMS, SIDE_CHAIN_IC_PATH  # noqa: F401
 
 #: Standard amino-acid residues (three-letter, upper-case), module-per-residue.
 RESIDUES = (
@@ -88,6 +89,7 @@ def get_template(resn, ss, rotamer="canonical"):
 
 __all__ = [
     "RESIDUES", "SS_CLASSES",
+    "MAINCHAIN_ATOMS", "SIDE_CHAIN_IC_PATH",
     "build_template", "make_residue_templates", "rotamer_names", "ss_torsions",
     "templates", "get_template", "_module",
 ]
