@@ -57,10 +57,10 @@ SS_BB_TORSION_ANGLE = {
     # ---- helices ----
     "alpha-helix": {
         "dssp": "H",
-        "phi": {"mean": -60, "std": 12, "lb": -85, "ub": -35, "source": ("rama_consensus", "kleywegt_jones_1996")},
-        "psi": {"mean": -45, "std": 16, "lb": -75, "ub": -15, "source": ("rama_consensus", "kleywegt_jones_1996")},
-        "omega": {"mean": 180, "std": 6, "lb": 170, "ub": 190, "source": "engh_huber_1991"},
-        "note": "共识 -57/-47 ~ -64/-41 之间；常用 -60/-45。",
+        "phi": {"mean": -60, "std": 12, "lb": -85, "ub": -35, "source": ("rama_consensus", "kleywegt_jones_1996", "procheck_appendix_a")},
+        "psi": {"mean": -45, "std": 16, "lb": -75, "ub": -15, "source": ("rama_consensus", "kleywegt_jones_1996", "procheck_appendix_a")},
+        "omega": {"mean": 180, "std": 6, "lb": 170, "ub": 190, "source": ("engh_huber_1991", "procheck_appendix_a")},
+        "note": "共识 -57/-47 ~ -64/-41 之间；常用 -60/-45。PROCHECK/Morris 1992 经验统计 helix φ/ψ = -65.3/-39.4, omega = 180.0±5.8, 与此一致。",
     },
     "3-10-helix": {
         "dssp": "G",
@@ -229,6 +229,8 @@ BB_TORSION_REFS = {
     "stewart_1990": "Stewart DE, Sarkar A, Wampler JE. Occurrence and role of cis peptide bonds in protein structures. J. Mol. Biol. 214:253-260, 1990. (顺式肽键统计/ω≈0°)",
     "weiss_1998": "Weiss MS, Jabs A, Hilgenfeld R. Peptide bonds revisited. Nat. Struct. Biol. 5:676, 1998. (顺式/反式 ω 分布)",
     "jabs_1999": "Jabs A, Weiss MS, Hilgenfeld R. Non-proline cis peptide bonds in proteins. J. Mol. Biol. 286:291-304, 1999. (非 Pro 顺式肽键)",
+    "morris_1992": "Morris AL, MacArthur MW, Hutchinson EG, Thornton JM. Stereochemical quality of protein structure coordinates. Proteins 12:345-364, 1992. (经验二面角/主链几何统计, 源自高分辨率 PDB 结构; 见 PROCHECK 手册 Table A.1 转载值, 菱形/主链只按 phi-psi 分布数有区分)",
+    "procheck_appendix_a": "Laskowski RA, MacArthur MW, Moss DS, Thornton JM. PROCHECK: a program to check the stereochemical quality of protein structures. J. Appl. Cryst. 26:283-291, 1993. (手册 Appendix A.1 转载 Morris et al 1992 经验值: chi1/chi2/Pro-phi/helix-phi/psi/omega 的 Mean±SD)",
 }
 
 # 核算用的常用旋转缺省 (供生成器在没有明确 SS 类别时回退)
