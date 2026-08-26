@@ -12,13 +12,13 @@ package build on those instead of importing biotite directly.
 
 from biorazer.structure.objects.external import AtomArray, AtomArrayStack
 from biorazer.structure.objects.internal_coords import (
-    AtomRecord,
+    InternalCoordAtom,
     InternalCoord,
 )
 
 __all__ = [
     "AtomArray",
     "AtomArrayStack",
-    "AtomRecord",
+    "InternalCoordAtom",
     "InternalCoord",
 ]

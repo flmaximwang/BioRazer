@@ -32,7 +32,7 @@ import copy
 
 import numpy as np
 
-from biorazer.structure.objects.internal_coords import InternalCoord, AtomRecord, _place, _dihedral
+from biorazer.structure.objects.internal_coords import InternalCoord, InternalCoordAtom, _place, _dihedral
 from biorazer.database.internal_coord_template._topology import SIDE_CHAIN_IC_PATH
 from biorazer.database.bond.backbone import AMINO_ACID_BOND_LENGTH, AMINO_ACID_BOND_ANGLE
 from biorazer.database.bond.sidechain import AMINO_ACID_SIDECHAIN_BOND
@@ -193,7 +193,7 @@ def _measure_ic(resn, coord, ss, rotamer, phi, psi, omega):
         if l in coord and l not in seen:
             order.append(l)
             seen.add(l)
-    atoms = [AtomRecord(res_name=resn, name=nm, element=_element(nm),
+    atoms = [InternalCoordAtom(res_name=resn, name=nm, element=_element(nm),
                         chain_id="A", res_id=1) for nm in order]
     ic = InternalCoord(atoms=atoms)
     idx = {nm: n for n, nm in enumerate(order)}
@@ -288,7 +288,7 @@ def build_template_direct(resn, ss, rotamer="canonical"):
         if quad[3] not in seen:
             order.append(quad[3])
             seen.add(quad[3])
-    atoms = [AtomRecord(res_name=resn, name=nm, element=_element(nm),
+    atoms = [InternalCoordAtom(res_name=resn, name=nm, element=_element(nm),
                         chain_id="A", res_id=1) for nm in order]
     ic = InternalCoord(atoms=atoms)
     idx = {nm: n for n, nm in enumerate(order)}
