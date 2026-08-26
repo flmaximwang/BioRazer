@@ -1,3 +1,10 @@
+"""Static codon-frequency data tables (E. coli).
+
+``E_COLI_T_SNAPGENE_712`` maps each codon to its amino acid and usage
+frequency; ``E_COLI_RT_SNAPGENE_712`` is the reverse view (amino acid →
+list of (codon, frequency)). Moved from ``biorazer.database.nucleotide``.
+"""
+
 E_COLI_T_SNAPGENE_712 = {
     "TTT": ("F", 0.58),
     "TTC": ("F", 0.42),

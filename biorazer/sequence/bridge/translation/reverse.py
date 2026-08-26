@@ -1,4 +1,4 @@
-from biorazer.database.nucleotide import *
+from biorazer.database.codon import *
 
 
 def full_reverse_translate(

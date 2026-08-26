@@ -6,6 +6,8 @@ CodonOptimize. python-codon-tables stores them per amino acid
 {codon: freq} for direct use, ``get_codon_usage_table_by_aa`` returns the
 native view. Table names follow "<species>_<taxid>" (e.g. e_coli_316407);
 short species names like "e_coli" are resolved by prefix match.
+
+Moved from ``biorazer.database.codon_usage``.
 """
 
 from python_codon_tables import available_codon_tables_names, get_codons_table
