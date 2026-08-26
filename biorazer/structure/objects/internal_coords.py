@@ -357,11 +357,11 @@ class InternalCoord:
         annotated from the official definitions:
 
         * backbone ``phi`` / ``psi`` / ``omega`` --
-          :data:`~biorazer.database.torsion_angle.backbone.MAINCHAIN_TORSION_DEFINITIONS`
+          :data:`~biorazer.database.molecule.bond.dihedral.protein.MAINCHAIN_TORSION_DEFINITIONS`
           (IUPAC: ``phi = C_{i-1}-N_i-CA_i-C_i``, ``psi = N_i-CA_i-C_i-N_{i+1}``,
           ``omega = CA_i-C_i-N_{i+1}-CA_{i+1}``);
         * side chain ``chi1``..``chi4`` --
-          :data:`~biorazer.database.torsion_angle.sidechain.SIDECHAIN_CHI`
+          :data:`~biorazer.database.molecule.bond.dihedral.protein.SIDECHAIN_CHI`
           (official Rosetta ``CHI`` rows, per residue).
 
         ``from_atomarray`` records backbone quads in the official atom order,
@@ -389,10 +389,10 @@ class InternalCoord:
         (``MAINCHAIN_TORSION_DEFINITIONS`` / ``SIDECHAIN_CHI``); ``""`` when
         no official torsion matches.
         """
-        from biorazer.database.torsion_angle.backbone import (
+        from biorazer.database.molecule.bond.dihedral.protein import (
             MAINCHAIN_TORSION_DEFINITIONS,
+            SIDECHAIN_CHI,
         )
-        from biorazer.database.torsion_angle.sidechain import SIDECHAIN_CHI
 
         names = tuple(self.atoms[x].name for x in (i, j, k, l))
         for ttype, def_names in MAINCHAIN_TORSION_DEFINITIONS.items():
@@ -571,10 +571,8 @@ class InternalCoord:
         Bond lengths and angles are derived from the input ``arr`` for the
         parent/child pairs of each quad, so they are exact (not idealised).
         """
-        from biorazer.database.internal_coord_template._topology import (
-            SIDE_CHAIN_IC_PATH,
-        )
-        from biorazer.database.bond import AMINO_ACID_BOND_LENGTH
+        from biorazer.database.molecule.icoor.protein.topology import IC_PATH
+        from biorazer.database.molecule.bond.length.generic import AMINO_ACID_BOND_LENGTH
 
         n = len(arr)
         atoms = [InternalCoordAtom.from_atom(arr, i) for i in range(n)]
@@ -694,7 +692,7 @@ class InternalCoord:
                             record((nC, mN, mCA, mC))    # CA_{i+1} - C_{i+1}
 
                 # side chain: per-residue grow path (chi rotamers)
-                for spec in SIDE_CHAIN_IC_PATH.get(name, ()):
+                for spec in IC_PATH.get(name, ()):
                     if all(nm in res for nm in spec):
                         record(tuple(res[nm] for nm in spec))
         return ic

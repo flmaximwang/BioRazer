@@ -15,4 +15,70 @@ Within :mod:`.bond`, each geometry type splits into ``generic``
 refinements).  Every numeric entry carries the uniform record
 ``{mean, std, lb, up, source}`` (std/lb/up = ``np.nan`` when the source
 provides no spread).
+
+Convenience re-exports (the full public names also resolve from their
+per-module homes)::
+
+    from biorazer.database.molecule import (
+        AMINO_ACID_BOND_LENGTH,            # bond.length.generic
+        AMINO_ACID_BOND_ANGLE,             # bond.angle.generic
+        SS_BB_TORSION_ANGLE,               # bond.dihedral.protein
+        IC_PATH,                           # icoor.protein.topology
+        ATOM_RADIUS,                       # atom.radius
+    )
 """
+
+# bond geometry
+from .bond.length.generic import (  # noqa: F401
+    AMINO_ACID_BOND_LENGTH,
+    BOND_REFS,
+)
+from .bond.length.protein import (  # noqa: F401
+    AMINO_ACID_BOND_LENGTH_BY_RESIDUE,
+    AMINO_ACID_SIDECHAIN_BOND,
+    BOND_SIDECHAIN_REFS,
+)
+from .bond.angle.generic import AMINO_ACID_BOND_ANGLE  # noqa: F401
+from .bond.angle.protein import (  # noqa: F401
+    AMINO_ACID_BOND_ANGLE_BY_RESIDUE,
+    AMINO_ACID_SIDECHAIN_BOND_ANGLE,
+)
+from .bond.dihedral.protein import (  # noqa: F401
+    SS_BB_TORSION_ANGLE,
+    DSSP_SS_CODE,
+    BB_TORSION_TURNS,
+    BB_TORSION_REFS,
+    OMEGA_TRANS,
+    OMEGA_CIS,
+    MAINCHAIN_TORSION_DEFINITIONS,
+    SIDECHAIN_CHI,
+    SIDECHAIN_IC_DIHEDRAL,
+    ROTAMER_BIN,
+    DUNBRACK_ROTAMERS,
+    SIDECHAIN_DIHE_REFS,
+)
+
+# atom properties
+from .atom.radius import ATOM_RADIUS, vdw_dict, vdw_radii  # noqa: F401
+
+# internal-coordinate reference data
+from .icoor.protein.topology import IC_PATH, MAINCHAIN_ATOMS  # noqa: F401
+
+__all__ = [
+    # bond length
+    "AMINO_ACID_BOND_LENGTH", "AMINO_ACID_BOND_LENGTH_BY_RESIDUE",
+    "AMINO_ACID_SIDECHAIN_BOND", "BOND_REFS", "BOND_SIDECHAIN_REFS",
+    # bond angle
+    "AMINO_ACID_BOND_ANGLE", "AMINO_ACID_BOND_ANGLE_BY_RESIDUE",
+    "AMINO_ACID_SIDECHAIN_BOND_ANGLE",
+    # bond dihedral
+    "SS_BB_TORSION_ANGLE", "DSSP_SS_CODE", "BB_TORSION_TURNS",
+    "BB_TORSION_REFS", "OMEGA_TRANS", "OMEGA_CIS",
+    "MAINCHAIN_TORSION_DEFINITIONS",
+    "SIDECHAIN_CHI", "SIDECHAIN_IC_DIHEDRAL", "ROTAMER_BIN",
+    "DUNBRACK_ROTAMERS", "SIDECHAIN_DIHE_REFS",
+    # atom properties
+    "ATOM_RADIUS", "vdw_dict", "vdw_radii",
+    # icoor topology
+    "IC_PATH", "MAINCHAIN_ATOMS",
+]

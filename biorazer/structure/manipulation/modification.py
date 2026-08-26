@@ -4,11 +4,9 @@ import biotite.structure as bio_struct
 import hydride
 
 from biorazer.database.alphabet import AMINO_ACIDS_1TO3_UPPER
-from biorazer.database.bond.backbone import (
-    AMINO_ACID_BOND_LENGTH,
-    AMINO_ACID_BOND_ANGLE,
-)
-from biorazer.database.torsion_angle.backbone import OMEGA_TRANS
+from biorazer.database.molecule.bond.length.generic import AMINO_ACID_BOND_LENGTH
+from biorazer.database.molecule.bond.angle.generic import AMINO_ACID_BOND_ANGLE
+from biorazer.database.molecule.bond.dihedral.protein import OMEGA_TRANS
 from ..selection.index.annotation import group_atoms_by_residue
 from .util import (
     _ensure_common_annotations,
