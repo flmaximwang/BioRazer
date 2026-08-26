@@ -525,8 +525,8 @@ class InternalCoord:
           and the per-residue carbonyl branch ``(N, CA, C, O)``.
         * **Side-chain pass** (per residue): each standard amino acid's side
           chain is grown off the already-placed backbone using its per-residue
-          grow-path table ``SIDE_CHAIN_IC_PATH`` (chi rotamers; see
-          ``biorazer.database.internal_coord_template._topology``).  Non-standard /
+          grow-path table ``IC_PATH`` (chi rotamers; see
+          ``biorazer.database.molecule.icoor.protein.topology``).  Non-standard /
           non-protein atoms (water, ligands, hydrogens) are not covered.
 
         Anchors default to the first three backbone atoms ``N, CA, C`` of every

@@ -4,7 +4,7 @@
 Each template is the ideal heavy-atom topology for {aa} anchored at
 {{N, CA, C}}, with the side chain grown to ``rotamer`` and the
 ``phi``/``psi``/``omega`` of ``ss`` carried on the instance.  See
-:mod:`biorazer.database.internal_coord_template` and
+:mod:`biorazer.database.molecule.icoor.protein.template` and
 :mod:`._builder` for the build rule and the per-conformer caveat.
 """
 
