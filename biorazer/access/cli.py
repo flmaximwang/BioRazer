@@ -39,7 +39,13 @@ def _resolve_target(identifier: str, fmt: str, output: str | None) -> Path:
         # which already includes correct version info (especially for AFDB)
         return Path(".")
     raw = str(output)
-    if raw.endswith(("/", "\\")) or Path(output).is_dir():
+    if raw.endswith(("/", "\\\\")):
+        # 以 / 结尾但目录尚不存在: 先创建, 使 _download_to 中 target.is_dir() 判定正确,
+        # 否则会被误当成目标文件名
+        path = Path(output)
+        path.mkdir(parents=True, exist_ok=True)
+        return path
+    if Path(output).is_dir():
         return Path(output)
     return Path(output)
 
