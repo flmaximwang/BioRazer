@@ -77,7 +77,7 @@ MAINCHAIN_ATOMS = frozenset(("N", "CA", "C", "O", "OXT"))
 #:   ``InternalCoord.from_atomarray``: each quad grows one atom of residue
 #:   ``i+1`` from the ``(i, j, k)`` frame spanning the peptide bond.  The
 #:   quads are listed in the **official torsion order** of
-#:   :data:`~biorazer.database.molecule.bond.dihedral.protein.MAINCHAIN_TORSION_DEFINITIONS`
+#:   :data:`~biorazer.database.molecule.bond.dihedral.protein.ALIAS_QUAD`
 #:   -- the dihedral each quad stores is the official definition:
 #:   ``(N_i, CA_i, C_i, N_{i+1})`` = ``psi`` of residue ``i``,
 #:   ``(CA_i, C_i, N_{i+1}, CA_{i+1})`` = ``omega`` of residue ``i``,

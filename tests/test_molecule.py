@@ -104,9 +104,9 @@ class TestUniformRecord:
 
     def test_ss_torsion_angle(self):
         for ss, v in M.SS_BB_TORSION_ANGLE.items():
-            for t in ("phi", "psi", "omega"):
-                assert self.REQUIRED <= set(v[t]), (ss, t)
-                assert "up" in v[t] and "ub" not in v[t]
+            for quad in M.ALIAS_QUAD.values():
+                assert self.REQUIRED <= set(v[quad]), (ss, quad)
+                assert "up" in v[quad] and "ub" not in v[quad]
 
     def test_sidechain_ic_dihedral(self):
         for res, d in M.SIDECHAIN_IC_DIHEDRAL.items():
@@ -249,9 +249,10 @@ class TestMigratedValues:
         assert M.AMINO_ACID_BOND_ANGLE[("CA", "C", "N")]["mean"] == 116.2
 
     def test_ss_torsion_alpha_helix(self):
-        phi = M.SS_BB_TORSION_ANGLE["alpha-helix"]["phi"]
+        ah = M.SS_BB_TORSION_ANGLE["alpha-helix"]
+        phi = ah[M.ALIAS_QUAD["phi"]]
         assert phi["mean"] == -60 and phi["up"] == -35 and phi["lb"] == -85
-        assert M.SS_BB_TORSION_ANGLE["alpha-helix"]["psi"]["mean"] == -45
+        assert ah[M.ALIAS_QUAD["psi"]]["mean"] == -45
 
     def test_sidechain_tables_keyed_by_arity(self):
         # length keys are 2-atom tuples, angle keys are 3-atom tuples,
@@ -276,7 +277,7 @@ class TestMigratedValues:
                 assert ang["source"] == bond["source"] == "rosetta_params_408", (res, quad)
 
     def test_mainchain_torsion_definitions(self):
-        assert M.MAINCHAIN_TORSION_DEFINITIONS == {
+        assert M.ALIAS_QUAD == {
             "phi": ("C", "N", "CA", "C"),
             "psi": ("N", "CA", "C", "N"),
             "omega": ("CA", "C", "N", "CA"),
@@ -297,7 +298,7 @@ class TestMigratedValues:
             for nm in quad:
                 assert nm.endswith("_i") or nm.endswith("_{i+1}")
         # the stored dihedral of each peptide quad is the official torsion:
-        # psi_i, omega_i, phi_{i+1} (see MAINCHAIN_TORSION_DEFINITIONS)
+        # psi_i, omega_i, phi_{i+1} (see ALIAS_QUAD)
         assert M.BACKBONE_IC_PATH["peptide"] == (
             ("N_i", "CA_i", "C_i", "N_{i+1}"),      # psi of residue i
             ("CA_i", "C_i", "N_{i+1}", "CA_{i+1}"),  # omega of residue i

@@ -358,7 +358,7 @@ class InternalCoord:
         annotated from the official definitions:
 
         * backbone ``phi`` / ``psi`` / ``omega`` --
-          :data:`~biorazer.database.molecule.bond.dihedral.protein.MAINCHAIN_TORSION_DEFINITIONS`
+          :data:`~biorazer.database.molecule.bond.dihedral.protein.ALIAS_QUAD`
           (IUPAC: ``phi = C_{i-1}-N_i-CA_i-C_i``, ``psi = N_i-CA_i-C_i-N_{i+1}``,
           ``omega = CA_i-C_i-N_{i+1}-CA_{i+1}``);
         * side chain ``chi1``..``chi4`` --
@@ -387,16 +387,16 @@ class InternalCoord:
 
         ``phi`` / ``psi`` / ``omega`` / ``chi1``..``chi4`` by **exact
         atom-name sequence** against the official definitions
-        (``MAINCHAIN_TORSION_DEFINITIONS`` / ``SIDECHAIN_CHI``); ``""`` when
+        (``ALIAS_QUAD`` / ``SIDECHAIN_CHI``); ``""`` when
         no official torsion matches.
         """
         from biorazer.database.molecule.bond.dihedral.protein import (
-            MAINCHAIN_TORSION_DEFINITIONS,
+            ALIAS_QUAD,
             SIDECHAIN_CHI,
         )
 
         names = tuple(self.atoms[x].name for x in (i, j, k, l))
-        for ttype, def_names in MAINCHAIN_TORSION_DEFINITIONS.items():
+        for ttype, def_names in ALIAS_QUAD.items():
             if names == def_names:
                 return ttype
         resn = self.atoms[i].res_name.upper()

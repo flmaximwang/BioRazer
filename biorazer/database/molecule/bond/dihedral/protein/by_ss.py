@@ -32,94 +32,99 @@ import numpy as np
 # ---------------------------------------------------------------------------
 # 主链: 二级结构分类的 phi/psi/omega
 # ---------------------------------------------------------------------------
-# 每条记录: {dssp, phi: {...}, psi: {...}, omega: {...}, note}
+# 每条记录: {dssp, <主链二面角 quad>: {mean, ...}, note}。
+# 主链二面角以官方四原子组做 key (见 ALIAS_QUAD / QUAD_ALIAS):
+#   phi   = ("C", "N", "CA", "C")
+#   psi   = ("N", "CA", "C", "N")
+#   omega = ("CA", "C", "N", "CA")
+# dssp/note 是 SS 类元数据, 不参与二面角查表。
 SS_BB_TORSION_ANGLE = {
     # ---- helices ----
     "alpha-helix": {
         "dssp": "H",
-        "phi": {"mean": -60, "std": 12, "lb": -85, "up": -35, "source": ("rama_consensus", "kleywegt_jones_1996", "procheck_appendix_a")},
-        "psi": {"mean": -45, "std": 16, "lb": -75, "up": -15, "source": ("rama_consensus", "kleywegt_jones_1996", "procheck_appendix_a")},
-        "omega": {"mean": 180, "std": 6, "lb": 170, "up": 190, "source": ("engh_huber_1991", "procheck_appendix_a")},
+        ("C", "N", "CA", "C"): {"mean": -60, "std": 12, "lb": -85, "up": -35, "source": ("rama_consensus", "kleywegt_jones_1996", "procheck_appendix_a")},
+        ("N", "CA", "C", "N"): {"mean": -45, "std": 16, "lb": -75, "up": -15, "source": ("rama_consensus", "kleywegt_jones_1996", "procheck_appendix_a")},
+        ("CA", "C", "N", "CA"): {"mean": 180, "std": 6, "lb": 170, "up": 190, "source": ("engh_huber_1991", "procheck_appendix_a")},
         "note": "共识 -57/-47 ~ -64/-41 之间；常用 -60/-45。PROCHECK/Morris 1992 经验统计 helix φ/ψ = -65.3/-39.4, omega = 180.0±5.8, 与此一致。",
     },
     "3-10-helix": {
         "dssp": "G",
-        "phi": {"mean": -60, "std": 14, "lb": -90, "up": -30, "source": ("rama_consensus", "kleywegt_jones_1996")},
-        "psi": {"mean": -30, "std": 16, "lb": -60, "up": 0, "source": ("rama_consensus", "kleywegt_jones_1996")},
-        "omega": {"mean": 180, "std": 6, "lb": 170, "up": 190, "source": "engh_huber_1991"},
+        ("C", "N", "CA", "C"): {"mean": -60, "std": 14, "lb": -90, "up": -30, "source": ("rama_consensus", "kleywegt_jones_1996")},
+        ("N", "CA", "C", "N"): {"mean": -30, "std": 16, "lb": -60, "up": 0, "source": ("rama_consensus", "kleywegt_jones_1996")},
+        ("CA", "C", "N", "CA"): {"mean": 180, "std": 6, "lb": 170, "up": 190, "source": "engh_huber_1991"},
         "note": "i,i+3 氢键；常作为 alpha 螺旋末端的延展。",
     },
     "pi-helix": {
         "dssp": "I",
-        "phi": {"mean": -57, "std": 15, "lb": -90, "up": -25, "source": ("rama_consensus", "kleywegt_jones_1996")},
-        "psi": {"mean": -70, "std": 20, "lb": -110, "up": -30, "source": ("rama_consensus", "kleywegt_jones_1996")},
-        "omega": {"mean": 180, "std": 6, "lb": 170, "up": 190, "source": "engh_huber_1991"},
+        ("C", "N", "CA", "C"): {"mean": -57, "std": 15, "lb": -90, "up": -25, "source": ("rama_consensus", "kleywegt_jones_1996")},
+        ("N", "CA", "C", "N"): {"mean": -70, "std": 20, "lb": -110, "up": -30, "source": ("rama_consensus", "kleywegt_jones_1996")},
+        ("CA", "C", "N", "CA"): {"mean": 180, "std": 6, "lb": 170, "up": 190, "source": "engh_huber_1991"},
         "note": "pi 螺旋稀少，phi/psi 靠近允许区边缘；数值偏近似。",
     },
     "polyproline-II": {
         "dssp": "P",
-        "phi": {"mean": -75, "std": 25, "lb": -125, "up": -25, "source": "adzhubei_sternberg_1993"},
-        "psi": {"mean": 145, "std": 30, "lb": 85, "up": 175, "source": "adzhubei_sternberg_1993"},
-        "omega": {"mean": 180, "std": 6, "lb": 170, "up": 190, "source": "engh_huber_1991"},
+        ("C", "N", "CA", "C"): {"mean": -75, "std": 25, "lb": -125, "up": -25, "source": "adzhubei_sternberg_1993"},
+        ("N", "CA", "C", "N"): {"mean": 145, "std": 30, "lb": 85, "up": 175, "source": "adzhubei_sternberg_1993"},
+        ("CA", "C", "N", "CA"): {"mean": 180, "std": 6, "lb": 170, "up": 190, "source": "engh_huber_1991"},
         "note": "经典值 -75/+145 (Adzhubei & Sternberg 1993)；DSSP v4 显式指派。",
     },
     # ---- sheets (general strand + parallel/antiparallel 细分) ----
     "beta-strand": {
         "dssp": "E",
-        "phi": {"mean": -120, "std": 30, "lb": -165, "up": -70, "source": ("rama_consensus", "kleywegt_jones_1996")},
-        "psi": {"mean": 130, "std": 35, "lb": 60, "up": 175, "source": ("rama_consensus", "kleywegt_jones_1996")},
-        "omega": {"mean": 180, "std": 6, "lb": 170, "up": 190, "source": "engh_huber_1991"},
+        ("C", "N", "CA", "C"): {"mean": -120, "std": 30, "lb": -165, "up": -70, "source": ("rama_consensus", "kleywegt_jones_1996")},
+        ("N", "CA", "C", "N"): {"mean": 130, "std": 35, "lb": 60, "up": 175, "source": ("rama_consensus", "kleywegt_jones_1996")},
+        ("CA", "C", "N", "CA"): {"mean": 180, "std": 6, "lb": 170, "up": 190, "source": "engh_huber_1991"},
         "note": "DSSP E 不区分平行/反平行；细分见 parallel/antiparallel-beta-strand。",
     },
     "parallel-beta-strand": {
         "dssp": "E",
-        "phi": {"mean": -119, "std": 25, "lb": -160, "up": -75, "source": ("rama_consensus", "kleywegt_jones_1996")},
-        "psi": {"mean": 113, "std": 30, "lb": 55, "up": 165, "source": ("rama_consensus", "kleywegt_jones_1996")},
-        "omega": {"mean": 180, "std": 6, "lb": 170, "up": 190, "source": "engh_huber_1991"},
+        ("C", "N", "CA", "C"): {"mean": -119, "std": 25, "lb": -160, "up": -75, "source": ("rama_consensus", "kleywegt_jones_1996")},
+        ("N", "CA", "C", "N"): {"mean": 113, "std": 30, "lb": 55, "up": 165, "source": ("rama_consensus", "kleywegt_jones_1996")},
+        ("CA", "C", "N", "CA"): {"mean": 180, "std": 6, "lb": 170, "up": 190, "source": "engh_huber_1991"},
         "note": "平行 beta-sheet 几何 (-119/+113)。",
     },
     "antiparallel-beta-strand": {
         "dssp": "E",
-        "phi": {"mean": -139, "std": 25, "lb": -175, "up": -95, "source": ("rama_consensus", "kleywegt_jones_1996")},
-        "psi": {"mean": 135, "std": 30, "lb": 75, "up": 175, "source": ("rama_consensus", "kleywegt_jones_1996")},
-        "omega": {"mean": 180, "std": 6, "lb": 170, "up": 190, "source": "engh_huber_1991"},
+        ("C", "N", "CA", "C"): {"mean": -139, "std": 25, "lb": -175, "up": -95, "source": ("rama_consensus", "kleywegt_jones_1996")},
+        ("N", "CA", "C", "N"): {"mean": 135, "std": 30, "lb": 75, "up": 175, "source": ("rama_consensus", "kleywegt_jones_1996")},
+        ("CA", "C", "N", "CA"): {"mean": 180, "std": 6, "lb": 170, "up": 190, "source": "engh_huber_1991"},
         "note": "反平行 beta-sheet 几何 (-139/+135)。",
     },
     "beta-bridge": {
         "dssp": "B",
-        "phi": {"mean": -120, "std": 30, "lb": -165, "up": -70, "source": ("rama_consensus", "kleywegt_jones_1996")},
-        "psi": {"mean": 130, "std": 35, "lb": 60, "up": 175, "source": ("rama_consensus", "kleywegt_jones_1996")},
-        "omega": {"mean": 180, "std": 6, "lb": 170, "up": 190, "source": "engh_huber_1991"},
+        ("C", "N", "CA", "C"): {"mean": -120, "std": 30, "lb": -165, "up": -70, "source": ("rama_consensus", "kleywegt_jones_1996")},
+        ("N", "CA", "C", "N"): {"mean": 130, "std": 35, "lb": 60, "up": 175, "source": ("rama_consensus", "kleywegt_jones_1996")},
+        ("CA", "C", "N", "CA"): {"mean": 180, "std": 6, "lb": 170, "up": 190, "source": "engh_huber_1991"},
         "note": "孤立 beta-bridge，几何同 strand。",
     },
     # ---- turns / bends / coil ----
     "turn": {
         "dssp": "T",
-        "phi": {"mean": 0, "std": 60, "lb": -180, "up": 180, "source": "hutchinson_thornton_1994"},
-        "psi": {"mean": 0, "std": 60, "lb": -180, "up": 180, "source": "hutchinson_thornton_1994"},
-        "omega": {"mean": 180, "std": 6, "lb": 170, "up": 190, "source": "engh_huber_1991"},
+        ("C", "N", "CA", "C"): {"mean": 0, "std": 60, "lb": -180, "up": 180, "source": "hutchinson_thornton_1994"},
+        ("N", "CA", "C", "N"): {"mean": 0, "std": 60, "lb": -180, "up": 180, "source": "hutchinson_thornton_1994"},
+        ("CA", "C", "N", "CA"): {"mean": 180, "std": 6, "lb": 170, "up": 190, "source": "engh_huber_1991"},
         "note": "多模态、宽分布；具体 beta-turn 亚型用 BB_TORSION_TURNS。",
     },
     "bend": {
         "dssp": "S",
-        "phi": {"mean": 0, "std": 60, "lb": -180, "up": 180, "source": "kabsch_sander_1983"},
-        "psi": {"mean": 0, "std": 60, "lb": -180, "up": 180, "source": "kabsch_sander_1983"},
-        "omega": {"mean": 180, "std": 6, "lb": 170, "up": 190, "source": "engh_huber_1991"},
+        ("C", "N", "CA", "C"): {"mean": 0, "std": 60, "lb": -180, "up": 180, "source": "kabsch_sander_1983"},
+        ("N", "CA", "C", "N"): {"mean": 0, "std": 60, "lb": -180, "up": 180, "source": "kabsch_sander_1983"},
+        ("CA", "C", "N", "CA"): {"mean": 180, "std": 6, "lb": 170, "up": 190, "source": "engh_huber_1991"},
         "note": "DSSP 只按 kappa(CA 三角角)>70° 判，不对 phi/psi 分类；取宽先验。",
     },
     "coil": {
         "dssp": " ",
-        "phi": {"mean": 0, "std": 70, "lb": -180, "up": 180, "source": "kabsch_sander_1983"},
-        "psi": {"mean": 0, "std": 70, "lb": -180, "up": 180, "source": "kabsch_sander_1983"},
-        "omega": {"mean": 180, "std": 6, "lb": 170, "up": 190, "source": "engh_huber_1991"},
+        ("C", "N", "CA", "C"): {"mean": 0, "std": 70, "lb": -180, "up": 180, "source": "kabsch_sander_1983"},
+        ("N", "CA", "C", "N"): {"mean": 0, "std": 70, "lb": -180, "up": 180, "source": "kabsch_sander_1983"},
+        ("CA", "C", "N", "CA"): {"mean": 180, "std": 6, "lb": 170, "up": 190, "source": "engh_huber_1991"},
         "note": "coil 在允许区近似均匀；std 取大不代表真分布，见模块 docstring 诚实性说明。",
     },
     # ---- 顺式肽键 (cis, ω≈0°) ----
     "cis-peptide-bond": {
         "dssp": " ",
-        "phi": {"mean": 0, "std": 70, "lb": -180, "up": 180, "source": "stewart_1990"},
-        "psi": {"mean": 0, "std": 70, "lb": -180, "up": 180, "source": "stewart_1990"},
-        "omega": {"mean": 0, "std": 8, "lb": -20, "up": 20, "source": "stewart_1990"},
+        ("C", "N", "CA", "C"): {"mean": 0, "std": 70, "lb": -180, "up": 180, "source": "stewart_1990"},
+        ("N", "CA", "C", "N"): {"mean": 0, "std": 70, "lb": -180, "up": 180, "source": "stewart_1990"},
+        ("CA", "C", "N", "CA"): {"mean": 0, "std": 8, "lb": -20, "up": 20, "source": "stewart_1990"},
         "note": "cis 只约束 ω≈0°；主要 cis-Pro (Pro 的 phi 因环受限 ~-75)；"
                 "多数出现在 loop/turn 内，故 DSSP 记 ' '(coil)。",
     },
@@ -226,8 +231,12 @@ OMEGA_CIS = {"mean": 0.0, "std": 6.0, "lb": -6.0, "up": 6.0, "source": "stewart_
 #: * ``phi``   = (C_{i-1}, N_i, CA_i, C_i)       —— 绕 N-CA 键
 #: * ``psi``   = (N_i, CA_i, C_i, N_{i+1})       —— 绕 CA-C 键
 #: * ``omega`` = (CA_i, C_i, N_{i+1}, CA_{i+1})   —— 绕 C-N 肽键
-MAINCHAIN_TORSION_DEFINITIONS = {
+#: 昵称 -> 官方四原子组。
+ALIAS_QUAD = {
     "phi":   ("C", "N", "CA", "C"),
     "psi":   ("N", "CA", "C", "N"),
     "omega": ("CA", "C", "N", "CA"),
 }
+
+#: 官方四原子组 -> 昵称 (ALIAS_QUAD 的反向映射, 供按 quad 查表时反查昵称)。
+QUAD_ALIAS = {quad: alias for alias, quad in ALIAS_QUAD.items()}
