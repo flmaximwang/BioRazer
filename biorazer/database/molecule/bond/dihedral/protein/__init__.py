@@ -8,7 +8,9 @@ modules:
   structure: phi/psi/omega per DSSP 9-state class
   (:data:`.by_ss.SS_BB_TORSION_ANGLE`), the DSSP code map, beta-turn
   dihedrals (PROMOTIF), the cis/trans omega constants and the official
-  main-chain torsion definitions.
+  main-chain torsion definitions.  The carbonyl ``O`` branch dihedral
+  ``(N, CA, C, O)`` is **not** tabulated here: on the trans peptide plane
+  it equals ``psi - 180`` of the residue (see :data:`.by_ss.ALIAS_QUAD`).
 * :mod:`.by_residue` -- per-residue (side-chain) torsion data: the official
   chi definitions (:data:`.by_residue.SIDECHAIN_CHI`), the canonical
   IC-frame side-chain dihedrals (Rosetta ICOOR ideals), and the Dunbrack

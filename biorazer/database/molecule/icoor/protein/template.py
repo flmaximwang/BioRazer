@@ -31,6 +31,9 @@ snapshot**:
   ``phi``/``psi``/``omega`` means (from ``torsion_angle.backbone``) are carried
   on the template instance (``phi``/``psi``/``omega`` attrs) --- a single
   residue's own atoms cannot encode them (they need the neighbor residues).
+  The carbonyl ``O`` branch dihedral is placed on the **trans peptide plane**:
+  O is anti to the next residue's amide N across the C-N bond, i.e.
+  ``dihedral(N, CA, C, O) = psi - 180`` (``psi`` = the residue's ``psi`` attr).
 * side chain: built to a chosen **rotamer**; the rotatable chi torsions are set
   exactly (subtree rigid rotation), the rest ideal.
 
@@ -276,8 +279,8 @@ def build_template(resn, ss, rotamer="canonical"):
     1.525
     >>> ic.bond_angles[(0, 1, 2)]           # N-CA-C
     111.2
-    >>> ic.dihedra[(0, 1, 2, 3)]            # N-CA-C-O carbonyl O quad
-    180.0
+    >>> ic.dihedra[(0, 1, 2, 3)]            # carbonyl O quad: psi - 180
+    135.0
     """
     bl = AMINO_ACID_BOND_LENGTH
     ba = AMINO_ACID_BACKBONE_BOND_ANGLE
@@ -307,15 +310,19 @@ def build_template(resn, ss, rotamer="canonical"):
     ic.bond_distances[(idx["CA"], idx["C"])] = bl[("CA", "C")]["mean"]
     ic.bond_angles[(idx["N"], idx["CA"], idx["C"])] = ba[("N", "CA", "C")]["mean"]
 
-    # carbonyl O branch -- the "intra" backbone grow quads (only quads whose
-    # (k, l) bond geometry exists in the generic tables are grown; template
-    # residues have no OXT so only the O quad lands here)
+    # carbonyl O (and C-terminal OXT) as branches off C --
+    # the "intra" backbone grow quads.  The carbonyl O is *anti* to the
+    # next residue's amide N across the C-N peptide bond (trans peptide
+    # plane): dihedral(N, CA, C, O) = psi - 180 with
+    # psi = dihedral(N, CA, C, N_{i+1}).  A template has no next residue,
+    # so the plane is anchored to the residue's own psi mean instead of a
+    # fixed 180 (the residue's phi/psi attrs are set below).
     for i, j, k, l in BACKBONE_IC_PATH["intra"]:
         if (k, l) not in bl:
             continue
         ic.bond_distances[(idx[k], idx[l])] = bl[(k, l)]["mean"]
         ic.bond_angles[(idx[j], idx[k], idx[l])] = ba[(j, k, l)]["mean"]
-        ic.dihedra[(idx[i], idx[j], idx[k], idx[l])] = 180.0
+        ic.dihedra[(idx[i], idx[j], idx[k], idx[l])] = 0.0  # placeholder
 
     # side chain straight from the tables; chi quads overridden by the rotamer
     sc_bond = AMINO_ACID_SIDECHAIN_BOND[resn]
@@ -335,5 +342,11 @@ def build_template(resn, ss, rotamer="canonical"):
     ic.phi = float(t["phi"])
     ic.psi = float(t["psi"])
     ic.omega = float(t["omega"])
+    # carbonyl O on the trans peptide plane: O is anti to the next residue's
+    # amide N across the C-N bond -> dihedral(N, CA, C, O) = psi - 180.
+    # (placeholder 0.0 above; set the real value now that psi is known)
+    for quad in BACKBONE_IC_PATH["intra"]:
+        if quad[3] == "O" and (idx[quad[0]], idx[quad[1]], idx[quad[2]], idx[quad[3]]) in ic.dihedra:
+            ic.dihedra[(idx[quad[0]], idx[quad[1]], idx[quad[2]], idx[quad[3]])] = (float(t["psi"]) - 180.0) % 360.0
     ic.rotamer = rotamer
     return ic
