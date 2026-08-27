@@ -313,17 +313,28 @@ class TestMigratedValues:
 class TestTemplates:
     """The template store builds and round-trips."""
 
-    def test_named_constants(self):
-        from biorazer.database.molecule.icoor.protein.template import (
-            get_template, IC_Gly_HelixAlpha, IC_Ser_HelixAlpha_gminus,
-        )
-        assert IC_Gly_HelixAlpha is get_template("GLY", "alpha-helix")
-        assert IC_Ser_HelixAlpha_gminus is get_template("SER", "alpha-helix", "g-")
+    def test_get_available_specs(self):
+        from biorazer.database.molecule.icoor.protein import template
+        # ALA: 0 chi axis -> single canonical rotamer per SS class
+        specs = template.get_available_specs("ALA")
+        assert len(specs) == 12                      # 12 SS classes
+        assert specs[0] == ("alpha-helix", "canonical")
+        assert all(rot == "canonical" for _, rot in specs)
+        # SER: 1 chi axis -> canonical + 3 g-/t/g+ per SS class
+        ser = template.get_available_specs("SER")
+        assert len(ser) == 12 * 4
+        assert ser[0] == ("alpha-helix", "canonical")
+        assert ser[1] == ("alpha-helix", "g-")
+        # LEU: 2 chi axes -> canonical + 9 chi1/chi2 per SS class
+        leu = template.get_available_specs("LEU")
+        assert len(leu) == 12 * 10
+        assert leu[1] == ("alpha-helix", "g-/g-")
 
     def test_build_and_to_atomarray(self):
-        from biorazer.database.molecule.icoor.protein.template import get_template
-        ic = get_template("SER", "alpha-helix", "g-")
+        from biorazer.database.molecule.icoor.protein import template
+        ic = template.build_template("SER", "alpha-helix", "g-")
         assert ic.phi == -60.0 and ic.psi == -45.0 and ic.omega == 180.0
+        assert ic.rotamer == "g-" and ic.ss == "alpha-helix"
         arr = ic.to_atomarray()
         assert len(arr) == len(ic.atoms)
         names = set(arr.atom_name)
@@ -331,9 +342,9 @@ class TestTemplates:
 
     def test_templates_round_trip(self):
         # to_coords -> from_atomarray must reproduce the template geometry
-        from biorazer.database.molecule.icoor.protein.template import get_template
+        from biorazer.database.molecule.icoor.protein import template
         from biorazer.structure.objects.internal_coords import InternalCoord
-        ic = get_template("TRP", "beta-strand")
+        ic = template.build_template("TRP", "beta-strand")
         arr = ic.to_atomarray()
         ic2 = InternalCoord.from_atomarray(arr)
         # anchors identical (the IC frame is preserved)
