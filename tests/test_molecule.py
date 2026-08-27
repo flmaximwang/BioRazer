@@ -132,6 +132,58 @@ class TestUniformRecord:
     def test_non_rotameric_bin_width(self):
         assert M.NON_ROTAMERIC_BIN_WIDTH == 30.0
 
+    def test_sidechain_rotamer_lib(self):
+        LIB = M.SIDECHAIN_ROTAMER_LIB
+        REQUIRED = {"mean", "std", "lb", "up", "source"}
+        # every residue has a canonical, single-level keys, record format
+        for res in M.AAS:
+            assert f"{res}_canonical" in LIB, res
+        for key, quad_map in LIB.items():
+            res = key.split("_")[0]
+            assert res in M.SIDECHAIN_CHI, key
+            for quad, rec in quad_map.items():
+                assert quad in M.SIDECHAIN_CHI[res], (key, quad)
+                assert REQUIRED <= set(rec), (key, quad)
+                assert np.isnan(rec["std"]) and np.isnan(rec["lb"]) and np.isnan(rec["up"])
+        # named-rotamer counts per rotameric_chi (derived from SIDECHAIN_CHI)
+        labels = ["g-", "g+", "t"]
+        for res in M.AAS:
+            rc = len(M.SIDECHAIN_CHI[res]) - (1 if res in M.SIDECHAIN_NON_ROTAMERIC_BINS else 0)
+            named = {k for k in LIB if k.startswith(res + "_") and k != f"{res}_canonical"}
+            if rc == 0:
+                assert named == set(), res
+            elif rc == 1:
+                assert named == {f"{res}_{l}" for l in labels}, res
+            else:
+                assert named == {f"{res}_{a}_{b}" for a in labels for b in labels}, res
+        # canonical quad->mean matches template values
+        for res in M.AAS:
+            for quad, rec in LIB[f"{res}_canonical"].items():
+                assert M.SIDECHAIN_IC_DIHEDRAL[res][quad]["mean"] == rec["mean"], (res, quad)
+        # canonical source is rosetta_params_408; named source is dunbrack_2010
+        for key, quad_map in LIB.items():
+            if key.endswith("_canonical"):
+                for rec in quad_map.values():
+                    assert rec["source"] == "rosetta_params_408", key
+            else:
+                for rec in quad_map.values():
+                    assert rec["source"] == "dunbrack_2010", key
+
+    def test_sidechain_non_rotameric_bins(self):
+        B = M.SIDECHAIN_NON_ROTAMERIC_BINS
+        expect = {"ASN":12,"ASP":6,"GLN":12,"GLU":6,"HIS":12,"PHE":6,"TRP":12,"TYR":6}
+        assert set(B) == set(expect), set(B)
+        for res, spec in B.items():
+            assert spec["bins"] == expect[res], (res, spec)
+            assert spec["chi_quad"] in M.SIDECHAIN_CHI[res], (res, spec)
+            assert spec["chi_quad"] == M.SIDECHAIN_CHI[res][-1], (res, spec)  # terminal chi
+        # terminal chi excluded from named rotamers
+        for res in expect:
+            last = M.SIDECHAIN_CHI[res][-1]
+            for key, quad_map in M.SIDECHAIN_ROTAMER_LIB.items():
+                if key.startswith(res + "_") and not key.endswith("_canonical"):
+                    assert last not in quad_map, (res, key)
+
     def test_atom_radius(self):
         for elm, rec in M.ATOM_RADIUS.items():
             assert self.REQUIRED <= set(rec), elm
