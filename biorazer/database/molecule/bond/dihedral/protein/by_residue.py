@@ -295,4 +295,23 @@ def _build_rotamer_lib():
 #: 覆盖 mean=0 状态)。命名 rotamer (g-/g+/t) 用 Dunbrack bin 中心, 只覆盖
 #: 前导可 rotameric chi (chi1 / chi1+chi2); 非 rotameric 末端 chi 只在
 #: ``canonical`` 中出现。完整骨架依赖数值表未内嵌。
+#:
+#: 键形: 单 chi 残基 -> ``<RES>_{canonical,g-,g+,t}``; 双 chi 残基 ->
+#: ``<RES>_{g-,g+,t}_{g-,g+,t}`` (仅 chi1 x chi2)。值 dict 的键是 chi
+#: 扭转角四元组 (原子名), 值各字段含义:
+#:   ``mean``   -- bin 中心二面角 (度)
+#:   ``std``    -- 标准差 (未内嵌时为 np.nan)
+#:   ``lb``/``up`` -- bin 下/上界 (未内嵌时为 np.nan)
+#:   ``source`` -- 数据来源 ("rosetta_params_408" / "dunbrack_2010")
+#:
+#: 示例 (真实内容):
+#:   >>> SIDECHAIN_ROTAMER_LIB['VAL_t']          # 单 chi, t (trans)
+#:   {('N', 'CA', 'CB', 'CG1'): {'mean': 180.0, 'std': nan,
+#:                               'lb': nan, 'up': nan,
+#:                               'source': 'dunbrack_2010'}}
+#:   >>> SIDECHAIN_ROTAMER_LIB['LEU_t_g-']       # 双 chi: chi1=t, chi2=g-
+#:   {('N', 'CA', 'CB', 'CG'): {'mean': 180.0, ...},
+#:    ('CA', 'CB', 'CG', 'CD1'): {'mean': -60.0, ...}}
+#:   >>> SIDECHAIN_ROTAMER_LIB['SER_canonical']  # canonical == IC 模板几何
+#:   {('N', 'CA', 'CB', 'OG'): {'mean': -0.0, 'source': 'rosetta_params_408', ...}}
 SIDECHAIN_ROTAMER_LIB = _build_rotamer_lib()
