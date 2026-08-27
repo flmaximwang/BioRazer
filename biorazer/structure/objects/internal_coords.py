@@ -522,7 +522,9 @@ class InternalCoord:
           ``i``'s ``C`` to residue ``i+1``'s ``N`` (peptide bond).  It records
           the cross-residue quads ``(N_i, CA_i, C_i, N_{i+1})``,
           ``(CA_i, C_i, N_{i+1}, CA_{i+1})``, ``(C_i, N_{i+1}, CA_{i+1}, C_{i+1})``
-          and the per-residue carbonyl branch ``(N, CA, C, O)``.
+          and the per-residue carbonyl branch ``(N, CA, C, O)`` -- the exact
+          quads of :data:`~biorazer.database.molecule.icoor.protein.topology.BACKBONE_IC_PATH`
+          (``"peptide"`` / ``"intra"`` groups).
         * **Side-chain pass** (per residue): each standard amino acid's side
           chain is grown off the already-placed backbone using its per-residue
           grow-path table ``IC_PATH`` (chi rotamers; see
@@ -571,7 +573,10 @@ class InternalCoord:
         Bond lengths and angles are derived from the input ``arr`` for the
         parent/child pairs of each quad, so they are exact (not idealised).
         """
-        from biorazer.database.molecule.icoor.protein.topology import IC_PATH
+        from biorazer.database.molecule.icoor.protein.topology import (
+            BACKBONE_IC_PATH,
+            IC_PATH,
+        )
         from biorazer.database.molecule.bond.length.generic import AMINO_ACID_BOND_LENGTH
 
         n = len(arr)
@@ -668,11 +673,11 @@ class InternalCoord:
                 # (terminal residue / chain with no growth).
                 fill_anchor_geometry()
 
-                # carbonyl O (and C-terminal OXT) as branches off C
-                if "O" in res:
-                    record((nN, nCA, nC, res["O"]))
-                if "OXT" in res:
-                    record((nN, nCA, nC, res["OXT"]))
+                # carbonyl O (and C-terminal OXT) as branches off C --
+                # the "intra" backbone grow quads
+                for spec in BACKBONE_IC_PATH["intra"]:
+                    if all(nm in res for nm in spec):
+                        record(tuple(res[nm] for nm in spec))
 
                 # peptide link to the next residue in the same chain; only
                 # connect when the C_i - N_{i+1} distance is chemically
@@ -687,9 +692,18 @@ class InternalCoord:
                             np.asarray(arr.coord[mN], float)
                             - np.asarray(arr.coord[nC], float)))
                         if c_n_dist <= c_n_ub:
-                            record((nN, nCA, nC, mN))    # C_i - N_{i+1} peptide
-                            record((nCA, nC, mN, mCA))   # N_{i+1} - CA_{i+1}
-                            record((nC, mN, mCA, mC))    # CA_{i+1} - C_{i+1}
+                            # the "peptide" backbone grow quads: each grows
+                            # one atom of residue i+1 from the frame spanning
+                            # the peptide bond (see BACKBONE_IC_PATH)
+                            def _bb(name):
+                                if name.endswith("_i"):
+                                    return res[name[:-2]]
+                                if name.endswith("_{i+1}"):
+                                    return nxt[name[:-6]]
+                                return res[name]
+
+                            for spec in BACKBONE_IC_PATH["peptide"]:
+                                record(tuple(_bb(nm) for nm in spec))
 
                 # side chain: per-residue grow path (chi rotamers)
                 for spec in IC_PATH.get(name, ()):

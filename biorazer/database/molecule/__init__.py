@@ -24,6 +24,7 @@ per-module homes)::
         AMINO_ACID_BOND_ANGLE,             # bond.angle.generic
         SS_BB_TORSION_ANGLE,               # bond.dihedral.protein
         IC_PATH,                           # icoor.protein.topology
+        BACKBONE_IC_PATH,                  # icoor.protein.topology
         ATOM_RADIUS,                       # atom.radius
     )
 """
@@ -62,7 +63,11 @@ from .bond.dihedral.protein import (  # noqa: F401
 from .atom.radius import ATOM_RADIUS, vdw_dict, vdw_radii  # noqa: F401
 
 # internal-coordinate reference data
-from .icoor.protein.topology import IC_PATH, MAINCHAIN_ATOMS  # noqa: F401
+from .icoor.protein.topology import (  # noqa: F401
+    IC_PATH,
+    MAINCHAIN_ATOMS,
+    BACKBONE_IC_PATH,
+)
 
 __all__ = [
     # bond length
@@ -80,5 +85,5 @@ __all__ = [
     # atom properties
     "ATOM_RADIUS", "vdw_dict", "vdw_radii",
     # icoor topology
-    "IC_PATH", "MAINCHAIN_ATOMS",
+    "IC_PATH", "MAINCHAIN_ATOMS", "BACKBONE_IC_PATH",
 ]

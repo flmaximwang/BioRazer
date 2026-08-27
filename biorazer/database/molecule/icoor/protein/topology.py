@@ -10,15 +10,19 @@ authored as ``biorazer/database/amino_acid_internal_coords.py``, then
 
 The main chain (backbone) of a protein is a **uniform** polymer walk
 ``N -> CA -> C -> O`` with a peptide bond ``C - N`` to the next residue;
-every residue follows the same path, so it is built algorithmically (see
-``InternalCoord.from_atomarray``) and is *not* stored as grow quads here
-(``MAINCHAIN_ATOMS`` lists its atoms).
+every residue follows the same path, so unlike the side chain it is not a
+per-residue table.  Its grow specs are recorded once in
+:data:`BACKBONE_IC_PATH` (grouped into per-residue ``intra`` carbonyl
+branches and cross-residue ``peptide`` links), which both the read path
+(``InternalCoord.from_atomarray``) and the write path (the template
+builder) consume.
 
 The side chain, by contrast, is **different for each amino acid**: a tree
 grafted at ``CA``, whose branching is described by the official chi
 rotamers (``chi1`` rotates about ``CA-CB``, ``chi2`` about ``CB-CG``, ...).
 This module stores, per residue, the ordered list of grow specs that
-traverse that tree (:data:`IC_PATH`).
+traverse that tree (:data:`IC_PATH`), plus the **uniform backbone** grow
+specs every residue shares (:data:`BACKBONE_IC_PATH`).
 
 Each grow spec is a quad ``(i, j, k, l)`` of **atom names**, matching the
 ``InternalCoord`` convention: atom ``l`` is grown from parents ``(i, j, k)``,
@@ -55,6 +59,40 @@ from __future__ import annotations
 #: side-chain table).  ``O``/``OXT`` are branches off ``C``; ``H_n``
 #: backbone protons exist only in explicit-H structures.
 MAINCHAIN_ATOMS = frozenset(("N", "CA", "C", "O", "OXT"))
+
+#: Backbone (main-chain) grow-path: the **uniform** IC grow quads that
+#: every residue shares (the backbone is not per-residue, unlike
+#: :data:`IC_PATH`).  Two groups:
+#:
+#: * ``"intra"`` -- per-residue quads: the carbonyl ``O`` (and C-terminal
+#:   ``OXT``) branch off ``C``, grown from the ``(N, CA, C)`` anchor frame.
+#:   This is the only backbone growth a single-residue builder can record
+#:   (``N``/``CA``/``C`` themselves are the anchor frame, placed
+#:   analytically, not grown).  ``OXT`` is present only in C-terminal
+#:   residues and in explicit-H / capped structures; the bond tables carry
+#:   no ``OXT`` geometry, so template builders record just the ``O`` quad.
+#: * ``"peptide"`` -- cross-residue quads linking residue ``i`` to ``i+1``,
+#:   with atom names subscripted ``_i`` (current residue) / ``_{i+1}``
+#:   (next residue).  These are the main-chain pass of
+#:   ``InternalCoord.from_atomarray``: each quad grows one atom of residue
+#:   ``i+1`` from the ``(i, j, k)`` frame spanning the peptide bond.  The
+#:   quads are listed in the **official torsion order** of
+#:   :data:`~biorazer.database.molecule.bond.dihedral.protein.MAINCHAIN_TORSION_DEFINITIONS`
+#:   -- the dihedral each quad stores is the official definition:
+#:   ``(N_i, CA_i, C_i, N_{i+1})`` = ``psi`` of residue ``i``,
+#:   ``(CA_i, C_i, N_{i+1}, CA_{i+1})`` = ``omega`` of residue ``i``,
+#:   ``(C_i, N_{i+1}, CA_{i+1}, C_{i+1})`` = ``phi`` of residue ``i+1``.
+BACKBONE_IC_PATH = {
+    "intra": (
+        ("N", "CA", "C", "O"),
+        ("N", "CA", "C", "OXT"),
+    ),
+    "peptide": (
+        ("N_i", "CA_i", "C_i", "N_{i+1}"),
+        ("CA_i", "C_i", "N_{i+1}", "CA_{i+1}"),
+        ("C_i", "N_{i+1}", "CA_{i+1}", "C_{i+1}"),
+    ),
+}
 
 #: Side-chain grow-path per residue: ``{res_name: ((i, j, k, l), ...)}``,
 #: one ``(i, j, k, l)`` atom-name quad per side-chain heavy atom ``l``

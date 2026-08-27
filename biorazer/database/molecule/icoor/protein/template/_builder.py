@@ -46,7 +46,7 @@ from __future__ import annotations
 import numpy as np
 
 from biorazer.structure.objects.internal_coords import InternalCoord, InternalCoordAtom
-from biorazer.database.molecule.icoor.protein.topology import IC_PATH
+from biorazer.database.molecule.icoor.protein.topology import BACKBONE_IC_PATH, IC_PATH
 from biorazer.database.molecule.bond.length.generic import AMINO_ACID_BOND_LENGTH
 from biorazer.database.molecule.bond.angle.generic import AMINO_ACID_BOND_ANGLE
 from biorazer.database.molecule.bond.length.protein import AMINO_ACID_SIDECHAIN_BOND
@@ -176,10 +176,15 @@ def build_template(resn, ss, rotamer="canonical"):
     ic.bond_distances[(idx["CA"], idx["C"])] = bl[("CA", "C")]["mean"]
     ic.bond_angles[(idx["N"], idx["CA"], idx["C"])] = ba[("N", "CA", "C")]["mean"]
 
-    # carbonyl O branch (N, CA, C, O): trans
-    ic.bond_distances[(idx["C"], idx["O"])] = bl[("C", "O")]["mean"]
-    ic.bond_angles[(idx["CA"], idx["C"], idx["O"])] = ba[("CA", "C", "O")]["mean"]
-    ic.dihedra[(idx["N"], idx["CA"], idx["C"], idx["O"])] = 180.0
+    # carbonyl O branch -- the "intra" backbone grow quads (only quads whose
+    # (k, l) bond geometry exists in the generic tables are grown; template
+    # residues have no OXT so only the O quad lands here)
+    for i, j, k, l in BACKBONE_IC_PATH["intra"]:
+        if (k, l) not in bl:
+            continue
+        ic.bond_distances[(idx[k], idx[l])] = bl[(k, l)]["mean"]
+        ic.bond_angles[(idx[j], idx[k], idx[l])] = ba[(j, k, l)]["mean"]
+        ic.dihedra[(idx[i], idx[j], idx[k], idx[l])] = 180.0
 
     # side chain straight from the tables; chi quads overridden by the rotamer
     sc_bond = AMINO_ACID_SIDECHAIN_BOND[resn]
