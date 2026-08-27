@@ -1,17 +1,30 @@
 # -*- coding: utf-8 -*-
-"""Build per-residue, per-secondary-structure, per-rotamer ideal
-``InternalCoord`` templates from the ``biorazer.database`` torsion and geometry
-tables.  This is the **write / generative** path (the read path is
-``InternalCoord.from_atomarray``; its side-chain topology
-``IC_PATH`` is reused here as the residue atom order).
+"""Ideal per-residue ``InternalCoord`` templates for the protein backbone
+and side chains, built **directly from the database tables** (no all-atom
+Cartesian placement, no measure-from-coordinates round-trip).
 
-Design (user-defined, 2026)
----------------------------
+Public API
+----------
+This module is the single entry point of the
+``biorazer.database.molecule.icoor.protein`` subpackage's template store::
+
+    from biorazer.database.molecule.icoor.protein import template
+
+    template.get_available_specs("ALA")
+    ic = template.build_template("ALA", "alpha-helix", "canonical")
+
+* :func:`get_available_specs` -- the ``(secondary-structure, rotamer)``
+  combinations available for a residue.
+* :func:`build_template` -- build one ``InternalCoord`` template for a
+  residue at a chosen ``ss`` x ``rotamer``.
+
+Design
+------
 Each amino-acid template is an :class:`~biorazer.structure.objects.InternalCoord`
 whose heavy atoms are ``N, CA, C, O, CB, <side chain>`` (Gly: no ``CB``/side
 chain), anchored at ``{N, CA, C}`` --- the residue's three backbone atoms.  The
-carbonyl ``O`` and the whole side chain (grown along ``IC_PATH``)
-are reconstructible from the anchor.  A template is a **per-conformer ideal
+carbonyl ``O`` and the whole side chain (grown along ``IC_PATH``) are
+reconstructible from the anchor.  A template is a **per-conformer ideal
 snapshot**:
 
 * backbone: canonical Engh-Huber / Rosetta ideal; the secondary-structure
@@ -34,7 +47,7 @@ bond length / bond angle / dihedral is assigned directly from
   inside the rigid group or its reference frame sits outside the rotated
   subtree) -> taken straight from the tables;
 * the chi dihedrals themselves equal the rotamer's bin targets ->
-  overridden from ``rotamer_targets()``.
+  overridden from :func:`rotamer_targets`.
 
 This is verified exhaustively: for all 20 residues x 12 SS classes x common
 rotamers, the table-filled template reproduces the old
@@ -65,6 +78,17 @@ from biorazer.database.molecule.bond.dihedral.protein import (
 # chi bin centers live in torsion_angle.sidechain (single source of truth).
 # g-/t/g+ = -60/180/+60 (standard Dunbrack rotamer definitions).
 _ROT_BIN = ROTAMER_BIN
+
+#: Standard amino-acid residues (three-letter, upper-case) supported by
+#: :func:`build_template`.
+RESIDUES = (
+    "ALA", "ARG", "ASN", "ASP", "CYS", "GLN", "GLU", "GLY", "HIS", "ILE",
+    "LEU", "LYS", "MET", "PHE", "PRO", "SER", "THR", "TRP", "TYR", "VAL",
+)
+
+#: Secondary-structure classes (keys of ``SS_BB_TORSION_ANGLE``), in the order
+#: :func:`get_available_specs` reports them.
+SS_CLASSES = tuple(SS_BB_TORSION_ANGLE)
 
 #: Per amino acid: number of freely rotatable chi used to define its common
 #: rotamers.  ``0`` -> single canonical template; ``1`` -> 3 chi1 rotamers;
@@ -145,9 +169,6 @@ def rotamer_targets(resn, rotamer):
     return targets
 
 
-# --------------------------------------------------------------------------- #
-# public API
-# --------------------------------------------------------------------------- #
 def ss_torsions(ss):
     """``{phi, psi, omega}`` mean values for a secondary-structure class, from
     :data:`biorazer.database.molecule.bond.dihedral.protein.by_ss.SS_BB_TORSION_ANGLE`.
@@ -170,6 +191,40 @@ def ss_torsions(ss):
     return {alias: v[quad]["mean"] for alias, quad in ALIAS_QUAD.items()}
 
 
+def get_available_specs(resn):
+    """All ``(secondary-structure, rotamer)`` specs available for a residue.
+
+    Enumerates every :data:`SS_CLASSES` class x every rotamer from
+    :func:`rotamer_names` --- the exact combinations :func:`build_template`
+    accepts.
+
+    Parameters
+    ----------
+    resn : str
+        Three-letter residue name (upper-case).
+
+    Returns
+    -------
+    list of (str, str)
+        ``(ss, rotamer)`` pairs in ``SS_CLASSES`` order, ``"canonical"``
+        rotamer first per class.
+
+    Examples
+    --------
+    >>> get_available_specs("ALA")[:2]
+    [('alpha-helix', 'canonical'), ('3-10-helix', 'canonical')]
+    >>> get_available_specs("SER")[0]
+    ('alpha-helix', 'canonical')
+    >>> get_available_specs("SER")[1]
+    ('alpha-helix', 'g-')
+    >>> len(get_available_specs("ALA"))            # 12 SS classes x 1 rotamer
+    12
+    >>> len(get_available_specs("LEU"))            # 12 SS x 10 rotamers
+    120
+    """
+    return [(ss, rot) for ss in SS_CLASSES for rot in rotamer_names(resn)]
+
+
 def build_template(resn, ss, rotamer="canonical"):
     """Build one ``InternalCoord`` template for ``resn`` at ``ss`` and ``rotamer``
     by **direct table fill** -- no all-atom Cartesian placement, no
@@ -187,9 +242,9 @@ def build_template(resn, ss, rotamer="canonical"):
     resn : str
         Three-letter residue name (upper-case).
     ss : str
-        Secondary-structure class key of ``SS_BB_TORSION_ANGLE``.
+        Secondary-structure class key (see :func:`get_available_specs`).
     rotamer : str
-        A name from :func:`rotamer_names` (default "canonical").
+        A rotamer name from :func:`get_available_specs` (default "canonical").
 
     Examples
     --------
@@ -282,51 +337,3 @@ def build_template(resn, ss, rotamer="canonical"):
     ic.omega = float(t["omega"])
     ic.rotamer = rotamer
     return ic
-
-
-def build_template_direct(resn, ss, rotamer="canonical"):
-    """Direct-fill alias of :func:`build_template`.
-
-    Kept for backward compatibility: ``build_template`` is now the direct
-    table-fill path (no Cartesian round-trip), so both names are equivalent.
-
-    Examples
-    --------
-    >>> ic = build_template_direct("SER", "coil", "t")
-    >>> [a.name for a in ic.atoms]
-    ['N', 'CA', 'C', 'O', 'CB', 'OG']
-    >>> ic.rotamer, ic.ss
-    ('t', 'coil')
-    """
-    return build_template(resn, ss, rotamer)
-
-
-def make_residue_templates(resn):
-    """``{ss: {rotamer: InternalCoord}}`` for all SS classes x common rotamers.
-
-    Iterates every SS key of ``SS_BB_TORSION_ANGLE`` (12 classes) and every
-    rotamer from :func:`rotamer_names`.
-
-    Examples
-    --------
-    >>> t = make_residue_templates("LEU")
-    >>> len(t)                              # 12 SS classes
-    12
-    >>> list(t.keys())[:3]
-    ['alpha-helix', '3-10-helix', 'pi-helix']
-    >>> list(t["alpha-helix"].keys())       # canonical + 9 chi1/chi2 rotamers
-    ['canonical', 'g-/g-', 'g-/t', 'g-/g+', 't/g-', 't/t', 't/g+', 'g+/g-', 'g+/t', 'g+/g+']
-    >>> ic = t["coil"]["canonical"]
-    >>> ic.phi, ic.psi, ic.omega            # coil means
-    (0.0, 0.0, 180.0)
-    >>> [a.name for a in ic.atoms]          # LEU side chain CB, CG, CD1, CD2
-    ['N', 'CA', 'C', 'O', 'CB', 'CG', 'CD1', 'CD2']
-
-    >>> ta = make_residue_templates("ALA")
-    >>> list(ta["coil"].keys())             # 0 chi axis -> canonical only
-    ['canonical']
-    """
-    out = {}
-    for ss in SS_BB_TORSION_ANGLE:
-        out[ss] = {r: build_template(resn, ss, r) for r in rotamer_names(resn)}
-    return out
