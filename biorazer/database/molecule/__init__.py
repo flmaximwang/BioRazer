@@ -20,7 +20,7 @@ Convenience re-exports (the full public names also resolve from their
 per-module homes)::
 
     from biorazer.database.molecule import (
-        AMINO_ACID_BOND_LENGTH,            # bond.length.generic
+        AMINO_ACID_BOND_LENGTH,            # bond.length.protein (by_residue)
         AMINO_ACID_BOND_ANGLE,             # bond.angle.generic
         SS_BB_TORSION_ANGLE,               # bond.dihedral.protein.by_ss
         IC_PATH,                           # icoor.protein.topology
@@ -30,11 +30,9 @@ per-module homes)::
 """
 
 # bond geometry
-from .bond.length.generic import (  # noqa: F401
-    AMINO_ACID_BOND_LENGTH,
-    BOND_REFS,
-)
 from .bond.length.protein import (  # noqa: F401
+    BOND_REFS,
+    AMINO_ACID_BOND_LENGTH,
     AMINO_ACID_BOND_LENGTH_BY_RESIDUE,
     AMINO_ACID_SIDECHAIN_BOND,
     BOND_SIDECHAIN_REFS,

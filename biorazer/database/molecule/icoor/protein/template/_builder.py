@@ -47,9 +47,8 @@ import numpy as np
 
 from biorazer.structure.objects.internal_coords import InternalCoord, InternalCoordAtom
 from biorazer.database.molecule.icoor.protein.topology import BACKBONE_IC_PATH, IC_PATH
-from biorazer.database.molecule.bond.length.generic import AMINO_ACID_BOND_LENGTH
+from biorazer.database.molecule.bond.length.protein import AMINO_ACID_SIDECHAIN_BOND, AMINO_ACID_BOND_LENGTH
 from biorazer.database.molecule.bond.angle.generic import AMINO_ACID_BOND_ANGLE
-from biorazer.database.molecule.bond.length.protein import AMINO_ACID_SIDECHAIN_BOND
 from biorazer.database.molecule.bond.angle.protein import AMINO_ACID_SIDECHAIN_BOND_ANGLE
 from biorazer.database.molecule.bond.dihedral.protein import (
     SS_BB_TORSION_ANGLE,

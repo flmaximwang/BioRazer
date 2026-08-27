@@ -32,7 +32,7 @@ CA-C-O 120.8 / N-CA-CB 110.4 —— 与 Engh-Huber (非 Gly) 行完全一致。
 
 import numpy as np
 
-from ..length.generic import BOND_REFS  # noqa: F401  (shared provenance)
+from ..length.protein import BOND_REFS  # noqa: F401  (shared provenance)
 
 # ---------------------------------------------------------------------------
 # 键角主表 (单位: 度)
