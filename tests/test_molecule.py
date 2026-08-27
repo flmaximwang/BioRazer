@@ -49,6 +49,7 @@ class TestPackageLayout:
         assert M.SIDECHAIN_CHI is dih_protein.SIDECHAIN_CHI
         assert M.IC_PATH is topology.IC_PATH
         assert M.MAINCHAIN_ATOMS is topology.MAINCHAIN_ATOMS
+        assert M.BACKBONE_IC_PATH is topology.BACKBONE_IC_PATH
         assert M.ATOM_RADIUS is atom_radius.ATOM_RADIUS
 
 
@@ -167,6 +168,28 @@ class TestMigratedValues:
             "psi": ("N", "CA", "C", "N"),
             "omega": ("CA", "C", "N", "CA"),
         }
+
+    def test_backbone_ic_path(self):
+        # the uniform backbone grow quads every residue shares
+        assert set(M.BACKBONE_IC_PATH) == {"intra", "peptide"}
+        # intra: per-residue carbonyl branches off C
+        assert M.BACKBONE_IC_PATH["intra"] == (
+            ("N", "CA", "C", "O"),
+            ("N", "CA", "C", "OXT"),
+        )
+        # peptide: cross-residue quads, subscripted _i / _{i+1}
+        assert len(M.BACKBONE_IC_PATH["peptide"]) == 3
+        for quad in M.BACKBONE_IC_PATH["peptide"]:
+            assert len(quad) == 4
+            for nm in quad:
+                assert nm.endswith("_i") or nm.endswith("_{i+1}")
+        # the stored dihedral of each peptide quad is the official torsion:
+        # psi_i, omega_i, phi_{i+1} (see MAINCHAIN_TORSION_DEFINITIONS)
+        assert M.BACKBONE_IC_PATH["peptide"] == (
+            ("N_i", "CA_i", "C_i", "N_{i+1}"),      # psi of residue i
+            ("CA_i", "C_i", "N_{i+1}", "CA_{i+1}"),  # omega of residue i
+            ("C_i", "N_{i+1}", "CA_{i+1}", "C_{i+1}"),  # phi of residue i+1
+        )
 
     def test_omega(self):
         assert M.OMEGA_TRANS["mean"] == 180.0 and M.OMEGA_TRANS["up"] == 190.0

@@ -2,8 +2,8 @@
 """Build per-residue, per-secondary-structure, per-rotamer ideal
 ``InternalCoord`` templates from the ``biorazer.database`` torsion and geometry
 tables.  This is the **write / generative** path (the read path is
-``InternalCoord.from_atomarray``; its side-chain topology
-``IC_PATH`` is reused here as the residue atom order).
+``InternalCoord.from_atomarray``; the grow-path topology
+``BACKBONE_IC_PATH`` / ``IC_PATH`` is reused here as the atom order).
 
 Design (user-defined, 2026)
 ---------------------------
@@ -33,7 +33,7 @@ import copy
 import numpy as np
 
 from biorazer.structure.objects.internal_coords import InternalCoord, InternalCoordAtom, _place, _dihedral
-from biorazer.database.molecule.icoor.protein.topology import IC_PATH
+from biorazer.database.molecule.icoor.protein.topology import BACKBONE_IC_PATH, IC_PATH
 from biorazer.database.molecule.bond.length.generic import AMINO_ACID_BOND_LENGTH
 from biorazer.database.molecule.bond.angle.generic import AMINO_ACID_BOND_ANGLE
 from biorazer.database.molecule.bond.length.protein import AMINO_ACID_SIDECHAIN_BOND
@@ -110,9 +110,18 @@ def _build_coords(resn):
          * np.array([np.cos(np.radians(180 - AMINO_ACID_BOND_ANGLE[("N","CA","C")]["mean"])),
                      np.sin(np.radians(180 - AMINO_ACID_BOND_ANGLE[("N","CA","C")]["mean"])), 0.0]))
     coord = {"N": N, "CA": CA, "C": C}
-    blen = AMINO_ACID_BOND_LENGTH[("C", "O")]["mean"]
-    bang = AMINO_ACID_BOND_ANGLE[("CA", "C", "O")]["mean"]
-    coord["O"] = _place(N, CA, C, blen, bang, 180.0)
+    # backbone carbonyl O (and OXT) -- the "intra" backbone grow quads.
+    # Only quads whose parents are already placed and whose (k, l) bond
+    # geometry exists in the generic tables are grown; template residues
+    # have no OXT so only the O quad lands here.
+    for i, j, k, l in BACKBONE_IC_PATH["intra"]:
+        if l in coord or not all(n in coord for n in (i, j, k)):
+            continue
+        if (k, l) not in AMINO_ACID_BOND_LENGTH:
+            continue
+        blen = AMINO_ACID_BOND_LENGTH[(k, l)]["mean"]
+        bang = AMINO_ACID_BOND_ANGLE[(j, k, l)]["mean"]
+        coord[l] = _place(coord[i], coord[j], coord[k], blen, bang, 180.0)
     # side chain, in IC_PATH topological order
     for quad in IC_PATH[resn]:
         i, j, k, l = quad
@@ -212,8 +221,11 @@ def _measure_ic(resn, coord, ss, rotamer, phi, psi, omega):
         ic.bond_angles[(idx[j], idx[k], idx[l])] = bang
         ic.dihedra[(idx[i], idx[j], idx[k], idx[l])] = _dihedral(ci, cj, ck, cl)
 
-    # backbone O branch
-    record(("N", "CA", "C", "O"))
+    # backbone O branch -- the "intra" backbone grow quads (only quads
+    # whose atoms are present in the residue's coordinate set are recorded)
+    for quad in BACKBONE_IC_PATH["intra"]:
+        if all(n in coord for n in quad):
+            record(quad)
     # side chain growth
     for quad in IC_PATH[resn]:
         if all(n in coord for n in quad):
