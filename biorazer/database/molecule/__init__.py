@@ -55,6 +55,7 @@ from .bond.dihedral.protein import (  # noqa: F401
     SIDECHAIN_CHI,
     SIDECHAIN_IC_DIHEDRAL,
     ROTAMER_BIN,
+    NON_ROTAMERIC_BIN_WIDTH,
     DUNBRACK_ROTAMERS,
     SIDECHAIN_DIHE_REFS,
 )
@@ -81,7 +82,7 @@ __all__ = [
     "BB_TORSION_REFS", "OMEGA_TRANS", "OMEGA_CIS",
     "MAINCHAIN_TORSION_DEFINITIONS",
     "SIDECHAIN_CHI", "SIDECHAIN_IC_DIHEDRAL", "ROTAMER_BIN",
-    "DUNBRACK_ROTAMERS", "SIDECHAIN_DIHE_REFS",
+    "NON_ROTAMERIC_BIN_WIDTH", "DUNBRACK_ROTAMERS", "SIDECHAIN_DIHE_REFS",
     # atom properties
     "ATOM_RADIUS", "vdw_dict", "vdw_radii",
     # icoor topology

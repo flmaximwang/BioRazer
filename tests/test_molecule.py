@@ -114,6 +114,24 @@ class TestUniformRecord:
             assert self.REQUIRED <= set(rec), name
             assert np.isnan(rec["std"]) and np.isnan(rec["lb"]) and np.isnan(rec["up"])
 
+    def test_dunbrack_rotamers_framework(self):
+        # Classification framework: per-residue chi axes + non-rotameric flag.
+        for res, rec in M.DUNBRACK_ROTAMERS.items():
+            assert rec["chi"] == len(M.SIDECHAIN_CHI[res]), res
+            assert 0 <= rec["rotameric_chi"] <= rec["chi"], res
+            assert isinstance(rec["terminal_non_rotameric"], bool), res
+            if rec["terminal_non_rotameric"]:
+                # non-rotameric terminal chi -> 30-deg fine bins (must have a count)
+                assert isinstance(rec["non_rotameric_bins"], int) and rec["non_rotameric_bins"] > 0, res
+                # rotameric degrees must be fewer than total chi (terminal excluded)
+                assert rec["rotameric_chi"] < rec["chi"], res
+            else:
+                assert rec["non_rotameric_bins"] is None, res
+                assert rec["rotameric_chi"] == rec["chi"], res
+
+    def test_non_rotameric_bin_width(self):
+        assert M.NON_ROTAMERIC_BIN_WIDTH == 30.0
+
     def test_atom_radius(self):
         for elm, rec in M.ATOM_RADIUS.items():
             assert self.REQUIRED <= set(rec), elm

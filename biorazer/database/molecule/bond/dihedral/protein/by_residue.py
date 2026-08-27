@@ -21,6 +21,11 @@
   轴数。完整的**骨架依赖数值表** (逐 phi/psi bin 的均值/方差) 属于外部
   Dunbrack 2010 数据集 (Shapovalov & Dunbrack 2011, CC BY 4.0), 未内嵌,
   需要时可另行 vendor。
+* ``NON_ROTAMERIC_BIN_WIDTH`` -- 非 rotameric 末端 chi (ASN/ASP/GLN/GLU/
+  PHE/TRP/HIS/TYR 的 sp2 末端) 的 30 deg 细 bin 宽度 (度)。这类 chi 不是
+  g-/t/g+ 的离散 rotamer, 而是宽而对称性差的连续分布; 论文用 kernel 密度
+  估计建模, 并额外提供 30 deg 离散 bin (每 bin 的均值/方差/占比) 以兼容
+  SCWRL 等旧应用。bin 数见 ``DUNBRACK_ROTAMERS`` 的 ``non_rotameric_bins``。
 
 所有角度单位 **度 (degree)**。数值记录统一为 ``{mean, std, lb, up,
 source}``; 查不到 spread 的字段为 ``np.nan`` (Rosetta ICOOR 只给理想点值)。
@@ -199,29 +204,35 @@ ROTAMER_BIN = {
     "g+": {"mean": 60.0, "std": np.nan, "lb": np.nan, "up": np.nan, "source": "dunbrack_2010"},
 }
 
-#: per 残基的 rotamer 分类框架: 可旋转 chi 轴数 (见 SIDECHAIN_CHI) + 标准 bin 中心。
-#: 完整数值表 (逐 phi/psi) 未内嵌。
+#: 非 rotameric 末端 chi (sp2 末端) 的 30 deg 细 bin 宽度 (度)。
+NON_ROTAMERIC_BIN_WIDTH = 30.0
+
+#: per 残基的 rotamer 分类框架。rotameric_chi = 前导可 rotameric chi 轴数
+#: (见 SIDECHAIN_CHI); terminal_non_rotameric = 末端 chi 是否为非 rotameric
+#: (sp2 杂化, 用 30 deg 细 bin 连续分布建模); non_rotameric_bins = 末端非
+#: rotameric chi 的 30 deg bin 数 (None 表示 rotameric)。完整数值表
+#: (逐 phi/psi) 未内嵌。
 DUNBRACK_ROTAMERS = {
-    'ALA': {"chi": 0, "bins": (("g-", -60.0), ("t", 180.0), ("g+", 60.0)), "note": "rotamer 分类框架; 数值表未内嵌 (见模块 docstring)"},
-    'ARG': {"chi": 4, "bins": (("g-", -60.0), ("t", 180.0), ("g+", 60.0)), "note": "rotamer 分类框架; 数值表未内嵌 (见模块 docstring)"},
-    'ASN': {"chi": 2, "bins": (("g-", -60.0), ("t", 180.0), ("g+", 60.0)), "note": "rotamer 分类框架; 数值表未内嵌 (见模块 docstring)"},
-    'ASP': {"chi": 2, "bins": (("g-", -60.0), ("t", 180.0), ("g+", 60.0)), "note": "rotamer 分类框架; 数值表未内嵌 (见模块 docstring)"},
-    'CYS': {"chi": 1, "bins": (("g-", -60.0), ("t", 180.0), ("g+", 60.0)), "note": "rotamer 分类框架; 数值表未内嵌 (见模块 docstring)"},
-    'GLN': {"chi": 3, "bins": (("g-", -60.0), ("t", 180.0), ("g+", 60.0)), "note": "rotamer 分类框架; 数值表未内嵌 (见模块 docstring)"},
-    'GLU': {"chi": 3, "bins": (("g-", -60.0), ("t", 180.0), ("g+", 60.0)), "note": "rotamer 分类框架; 数值表未内嵌 (见模块 docstring)"},
-    'GLY': {"chi": 0, "bins": (("g-", -60.0), ("t", 180.0), ("g+", 60.0)), "note": "rotamer 分类框架; 数值表未内嵌 (见模块 docstring)"},
-    'HIS': {"chi": 2, "bins": (("g-", -60.0), ("t", 180.0), ("g+", 60.0)), "note": "rotamer 分类框架; 数值表未内嵌 (见模块 docstring)"},
-    'ILE': {"chi": 2, "bins": (("g-", -60.0), ("t", 180.0), ("g+", 60.0)), "note": "rotamer 分类框架; 数值表未内嵌 (见模块 docstring)"},
-    'LEU': {"chi": 2, "bins": (("g-", -60.0), ("t", 180.0), ("g+", 60.0)), "note": "rotamer 分类框架; 数值表未内嵌 (见模块 docstring)"},
-    'LYS': {"chi": 4, "bins": (("g-", -60.0), ("t", 180.0), ("g+", 60.0)), "note": "rotamer 分类框架; 数值表未内嵌 (见模块 docstring)"},
-    'MET': {"chi": 3, "bins": (("g-", -60.0), ("t", 180.0), ("g+", 60.0)), "note": "rotamer 分类框架; 数值表未内嵌 (见模块 docstring)"},
-    'PHE': {"chi": 2, "bins": (("g-", -60.0), ("t", 180.0), ("g+", 60.0)), "note": "rotamer 分类框架; 数值表未内嵌 (见模块 docstring)"},
-    'PRO': {"chi": 2, "bins": (("g-", -60.0), ("t", 180.0), ("g+", 60.0)), "note": "rotamer 分类框架; 数值表未内嵌 (见模块 docstring)"},
-    'SER': {"chi": 1, "bins": (("g-", -60.0), ("t", 180.0), ("g+", 60.0)), "note": "rotamer 分类框架; 数值表未内嵌 (见模块 docstring)"},
-    'THR': {"chi": 1, "bins": (("g-", -60.0), ("t", 180.0), ("g+", 60.0)), "note": "rotamer 分类框架; 数值表未内嵌 (见模块 docstring)"},
-    'TRP': {"chi": 2, "bins": (("g-", -60.0), ("t", 180.0), ("g+", 60.0)), "note": "rotamer 分类框架; 数值表未内嵌 (见模块 docstring)"},
-    'TYR': {"chi": 2, "bins": (("g-", -60.0), ("t", 180.0), ("g+", 60.0)), "note": "rotamer 分类框架; 数值表未内嵌 (见模块 docstring)"},
-    'VAL': {"chi": 1, "bins": (("g-", -60.0), ("t", 180.0), ("g+", 60.0)), "note": "rotamer 分类框架; 数值表未内嵌 (见模块 docstring)"},
+    'ALA': {"chi": 0, "rotameric_chi": 0, "terminal_non_rotameric": False, "non_rotameric_bins": None, "bins": (("g-", -60.0), ("t", 180.0), ("g+", 60.0)), "note": "rotamer 分类框架; 数值表未内嵌 (见模块 docstring)"},
+    'ARG': {"chi": 4, "rotameric_chi": 4, "terminal_non_rotameric": False, "non_rotameric_bins": None, "bins": (("g-", -60.0), ("t", 180.0), ("g+", 60.0)), "note": "rotamer 分类框架; 数值表未内嵌 (见模块 docstring)"},
+    'ASN': {"chi": 2, "rotameric_chi": 1, "terminal_non_rotameric": True, "non_rotameric_bins": 12, "bins": (("g-", -60.0), ("t", 180.0), ("g+", 60.0)), "note": "末端 chi 非 rotameric, 30 deg 细 bin (Table S1 / Simple Mode); 数值表未内嵌 (见模块 docstring)"},
+    'ASP': {"chi": 2, "rotameric_chi": 1, "terminal_non_rotameric": True, "non_rotameric_bins": 6, "bins": (("g-", -60.0), ("t", 180.0), ("g+", 60.0)), "note": "末端 chi 非 rotameric, 30 deg 细 bin (Table S1 / Simple Mode); 数值表未内嵌 (见模块 docstring)"},
+    'CYS': {"chi": 1, "rotameric_chi": 1, "terminal_non_rotameric": False, "non_rotameric_bins": None, "bins": (("g-", -60.0), ("t", 180.0), ("g+", 60.0)), "note": "rotamer 分类框架; 数值表未内嵌 (见模块 docstring)"},
+    'GLN': {"chi": 3, "rotameric_chi": 2, "terminal_non_rotameric": True, "non_rotameric_bins": 12, "bins": (("g-", -60.0), ("t", 180.0), ("g+", 60.0)), "note": "末端 chi 非 rotameric, 30 deg 细 bin (Table S1 / Simple Mode); 数值表未内嵌 (见模块 docstring)"},
+    'GLU': {"chi": 3, "rotameric_chi": 2, "terminal_non_rotameric": True, "non_rotameric_bins": 6, "bins": (("g-", -60.0), ("t", 180.0), ("g+", 60.0)), "note": "末端 chi 非 rotameric, 30 deg 细 bin (Table S1 / Simple Mode); 数值表未内嵌 (见模块 docstring)"},
+    'GLY': {"chi": 0, "rotameric_chi": 0, "terminal_non_rotameric": False, "non_rotameric_bins": None, "bins": (("g-", -60.0), ("t", 180.0), ("g+", 60.0)), "note": "rotamer 分类框架; 数值表未内嵌 (见模块 docstring)"},
+    'HIS': {"chi": 2, "rotameric_chi": 1, "terminal_non_rotameric": True, "non_rotameric_bins": 12, "bins": (("g-", -60.0), ("t", 180.0), ("g+", 60.0)), "note": "末端 chi 非 rotameric, 30 deg 细 bin (Table S1 / Simple Mode); 数值表未内嵌 (见模块 docstring)"},
+    'ILE': {"chi": 2, "rotameric_chi": 2, "terminal_non_rotameric": False, "non_rotameric_bins": None, "bins": (("g-", -60.0), ("t", 180.0), ("g+", 60.0)), "note": "rotamer 分类框架; 数值表未内嵌 (见模块 docstring)"},
+    'LEU': {"chi": 2, "rotameric_chi": 2, "terminal_non_rotameric": False, "non_rotameric_bins": None, "bins": (("g-", -60.0), ("t", 180.0), ("g+", 60.0)), "note": "rotamer 分类框架; 数值表未内嵌 (见模块 docstring)"},
+    'LYS': {"chi": 4, "rotameric_chi": 4, "terminal_non_rotameric": False, "non_rotameric_bins": None, "bins": (("g-", -60.0), ("t", 180.0), ("g+", 60.0)), "note": "rotamer 分类框架; 数值表未内嵌 (见模块 docstring)"},
+    'MET': {"chi": 3, "rotameric_chi": 3, "terminal_non_rotameric": False, "non_rotameric_bins": None, "bins": (("g-", -60.0), ("t", 180.0), ("g+", 60.0)), "note": "rotamer 分类框架; 数值表未内嵌 (见模块 docstring)"},
+    'PHE': {"chi": 2, "rotameric_chi": 1, "terminal_non_rotameric": True, "non_rotameric_bins": 6, "bins": (("g-", -60.0), ("t", 180.0), ("g+", 60.0)), "note": "末端 chi 非 rotameric, 30 deg 细 bin (Table S1 / Simple Mode); 数值表未内嵌 (见模块 docstring)"},
+    'PRO': {"chi": 2, "rotameric_chi": 2, "terminal_non_rotameric": False, "non_rotameric_bins": None, "bins": (("g-", -60.0), ("t", 180.0), ("g+", 60.0)), "note": "rotamer 分类框架; 数值表未内嵌 (见模块 docstring)"},
+    'SER': {"chi": 1, "rotameric_chi": 1, "terminal_non_rotameric": False, "non_rotameric_bins": None, "bins": (("g-", -60.0), ("t", 180.0), ("g+", 60.0)), "note": "rotamer 分类框架; 数值表未内嵌 (见模块 docstring)"},
+    'THR': {"chi": 1, "rotameric_chi": 1, "terminal_non_rotameric": False, "non_rotameric_bins": None, "bins": (("g-", -60.0), ("t", 180.0), ("g+", 60.0)), "note": "rotamer 分类框架; 数值表未内嵌 (见模块 docstring)"},
+    'TRP': {"chi": 2, "rotameric_chi": 1, "terminal_non_rotameric": True, "non_rotameric_bins": 12, "bins": (("g-", -60.0), ("t", 180.0), ("g+", 60.0)), "note": "末端 chi 非 rotameric, 30 deg 细 bin (Table S1 / Simple Mode); 数值表未内嵌 (见模块 docstring)"},
+    'TYR': {"chi": 2, "rotameric_chi": 1, "terminal_non_rotameric": True, "non_rotameric_bins": 6, "bins": (("g-", -60.0), ("t", 180.0), ("g+", 60.0)), "note": "末端 chi 非 rotameric, 30 deg 细 bin (Table S1 / Simple Mode); 数值表未内嵌 (见模块 docstring)"},
+    'VAL': {"chi": 1, "rotameric_chi": 1, "terminal_non_rotameric": False, "non_rotameric_bins": None, "bins": (("g-", -60.0), ("t", 180.0), ("g+", 60.0)), "note": "rotamer 分类框架; 数值表未内嵌 (见模块 docstring)"},
 }
 
 SIDECHAIN_DIHE_REFS = {

@@ -28,6 +28,21 @@ HEAVY = set("CNOS")
 AAS = ["ALA", "ARG", "ASN", "ASP", "CYS", "GLN", "GLU", "GLY", "HIS", "ILE",
        "LEU", "LYS", "MET", "PHE", "PRO", "SER", "THR", "TRP", "TYR", "VAL"]
 
+#: 非 rotameric 末端 chi 的 30 deg 细 bin 数 (Simple Mode / Table S1; Gln 12 bin 在正文明确)。
+#: PDF 正文 (Shapovalov & Dunbrack 2011) 明确: ASN/ASP/GLN/GLU/PHE/TRP/HIS/TYR
+#: 的末端 chi 为非 rotameric, 用 30 deg bin 连续分布建模 (正文 line ~549-550);
+#: 下载页 Simple Mode 给出 bin 数 = 12 (ASN/GLN/HIS/TRP) 或 6 (ASP/GLU/PHE/TYR)。
+NON_ROTAMERIC = {
+    "ASN": {"rotameric_chi": 1, "terminal_bins": 12},
+    "ASP": {"rotameric_chi": 1, "terminal_bins": 6},
+    "GLN": {"rotameric_chi": 2, "terminal_bins": 12},
+    "GLU": {"rotameric_chi": 2, "terminal_bins": 6},
+    "HIS": {"rotameric_chi": 1, "terminal_bins": 12},
+    "PHE": {"rotameric_chi": 1, "terminal_bins": 6},
+    "TRP": {"rotameric_chi": 1, "terminal_bins": 12},
+    "TYR": {"rotameric_chi": 1, "terminal_bins": 6},
+}
+
 
 def parse(aa):
     icoor, chi = {}, []
@@ -106,15 +121,34 @@ def main():
           '"source": "dunbrack_2010"},' % (name, val))
     a('}')
     a('')
-    a('#: per 残基的 rotamer 分类框架: 可旋转 chi 轴数 (见 SIDECHAIN_CHI) + 标准 bin 中心。')
+    a('#: per 残基的 rotamer 分类框架。rotameric_chi = 前导可 rotameric chi 轴数'
+      ' (见 SIDECHAIN_CHI);')
+    a('#: terminal_non_rotameric = 末端 chi 是否为非 rotameric (sp2 杂化, 用 30 deg'
+      ' 细 bin 连续分布建模);')
+    a('#: non_rotameric_bins = 末端非 rotameric chi 的 30 deg bin 数 (None 表示'
+      ' rotameric)。')
     a('#: 完整数值表 (逐 phi/psi) 未内嵌。')
+    a('NON_ROTAMERIC_BIN_WIDTH = 30.0')
+    a('')
     a('DUNBRACK_ROTAMERS = {')
     for aa in AAS:
         _, chi = parse(aa)
         coord = build(aa)
         n = len([q for q in chi if set(q) <= set(coord) and "NV" not in q])
-        a('    %r: {"chi": %d, "bins": (("g-", -60.0), ("t", 180.0), ("g+", 60.0)),'
-          ' "note": "rotamer 分类框架; 数值表未内嵌 (见模块 docstring)"},' % (aa, n))
+        if aa in NON_ROTAMERIC:
+            nr = NON_ROTAMERIC[aa]
+            a('    %r: {"chi": %d, "rotameric_chi": %d, '
+              '"terminal_non_rotameric": True, "non_rotameric_bins": %d, '
+              '"bins": (("g-", -60.0), ("t", 180.0), ("g+", 60.0)), '
+              '"note": "末端 chi 非 rotameric, 30 deg 细 bin (Table S1 / Simple Mode); '
+              '数值表未内嵌 (见模块 docstring)"},'
+              % (aa, n, nr["rotameric_chi"], nr["terminal_bins"]))
+        else:
+            a('    %r: {"chi": %d, "rotameric_chi": %d, '
+              '"terminal_non_rotameric": False, "non_rotameric_bins": None, '
+              '"bins": (("g-", -60.0), ("t", 180.0), ("g+", 60.0)), '
+              '"note": "rotamer 分类框架; 数值表未内嵌 (见模块 docstring)"},'
+              % (aa, n, n))
     a('}')
     a('')
     a('SIDECHAIN_DIHE_REFS = {')
