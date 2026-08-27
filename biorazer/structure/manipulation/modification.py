@@ -5,7 +5,7 @@ import hydride
 
 from biorazer.database.alphabet import AMINO_ACIDS_1TO3_UPPER
 from biorazer.database.molecule.bond.length.protein import AMINO_ACID_BOND_LENGTH
-from biorazer.database.molecule.bond.angle.generic import AMINO_ACID_BOND_ANGLE
+from biorazer.database.molecule.bond.angle.generic import AMINO_ACID_BACKBONE_BOND_ANGLE
 from biorazer.database.molecule.bond.dihedral.protein import OMEGA_TRANS
 from ..selection.index.annotation import group_atoms_by_residue
 from .util import (
@@ -484,9 +484,9 @@ def connect_internal_coords(
     if bond_length is None:
         bond_length = AMINO_ACID_BOND_LENGTH[("C", "N")]["mean"]
     if angle_CA_C_N is None:
-        angle_CA_C_N = AMINO_ACID_BOND_ANGLE[("CA", "C", "N")]["mean"]
+        angle_CA_C_N = AMINO_ACID_BACKBONE_BOND_ANGLE[("CA", "C", "N")]["mean"]
     if angle_C_N_CA is None:
-        angle_C_N_CA = AMINO_ACID_BOND_ANGLE[("C", "N", "CA")]["mean"]
+        angle_C_N_CA = AMINO_ACID_BACKBONE_BOND_ANGLE[("C", "N", "CA")]["mean"]
     if omega is None:
         omega = OMEGA_TRANS["mean"]
 

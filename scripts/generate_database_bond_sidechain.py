@@ -6,8 +6,9 @@ Targets:
 * ``AMINO_ACID_SIDECHAIN_BOND`` -> biorazer/database/molecule/bond/length/
   protein/by_residue.py  (the merged length module; paste after the
   ``AMINO_ACID_BOND_LENGTH_BY_RESIDUE`` dict)
-* ``AMINO_ACID_SIDECHAIN_BOND_ANGLE`` -> biorazer/database/molecule/bond/
-  angle/protein.py (sidechain part)
+* ``AMINO_ACID_SIDECHAIN_BOND_ANGLE`` -> the **side-chain section** of
+  ``AMINO_ACID_BOND_ANGLE`` in biorazer/database/molecule/bond/angle/
+  protein.py (the merged residue-keyed angle module)
 
 Run (from the repo root)::
 
@@ -16,8 +17,9 @@ Run (from the repo root)::
 The emitted text contains only the ``AMINO_ACID_SIDECHAIN_BOND`` (keyed
 by 2-atom ``(k, l)`` bond) and ``AMINO_ACID_SIDECHAIN_BOND_ANGLE`` (keyed
 by 3-atom ``(j, k, l)`` angle) dicts (the ``{mean, std, lb, up, source,
-...}`` uniform record; std/lb/up = np.nan); paste them into the target
-modules' slots.
+...}`` uniform record; std/lb/up = np.nan); paste the side-chain angle dict
+as the side-chain section of the merged ``AMINO_ACID_BOND_ANGLE`` (the
+backbone per-residue refinements Gly/Pro/Ala/VIT sit above it).
 """
 import numpy as np
 import sys
@@ -106,6 +108,7 @@ def main():
     w('#: 每种氨基酸侧链的规范键角 (j,k,l), key 为 3 原子元组, 顶点在 k')
     w('#: {(res_name): {(j, k, l): {mean, std, lb, up, source}}}')
     w('#: std/lb/up 为 np.nan (Rosetta ICOOR 只给理想点值, 无 CSD sigma)。')
+    w('#: 这是合并后 AMINO_ACID_BOND_ANGLE 的「侧链」段 (粘贴到骨架细分段之后)。')
     w('AMINO_ACID_SIDECHAIN_BOND_ANGLE = {')
     for aa in AAS:
         coord, _ = build_canonical(aa)
