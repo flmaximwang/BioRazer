@@ -98,6 +98,8 @@ def fetch(
         logger.warning(f"{file_path} already exists, skipping")
         return file_path
     Path(download_dir).mkdir(parents=True, exist_ok=True)
-    entry.download(fmt, folder_dir=str(download_dir), requested_version=requested_version)
+    # 只传 download 必需参数; requested_version 已在 files.py 中用于 URL/文件名解析,
+    # 真实 AFDBEntry.download 内部会自行构造 URL (其第 3 参有默认值)
+    entry.download(fmt, folder_dir=str(download_dir))
     logger.info(f"{file_name} downloaded to {download_dir}")
     return file_path

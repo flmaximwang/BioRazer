@@ -194,7 +194,13 @@ class TestAfdbFetch:
     """AFDB fetch: 断网 (monkeypatch uniprot_to_entries 与 AFDBEntry.download)。"""
 
     def _entry(self, uid):
-        return AFDBEntry(data={"entryId": f"AF-{uid}-F1-model_v4", "cifUrl": "http://x.cif"})
+        # 与真实 AlphaFold API 返回一致: entryId 不含版本, cifUrl 尾部含版本
+        return AFDBEntry(
+            data={
+                "entryId": f"AF-{uid}-F1",
+                "cifUrl": f"https://alphafold.ebi.ac.uk/files/AF-{uid}-F1-model_v4.cif",
+            }
+        )
 
     def test_fetch_writes_entry_file(self, tmp_path, monkeypatch):
         """按 entryId 命名落盘并返回路径。"""
@@ -203,7 +209,9 @@ class TestAfdbFetch:
         )
 
         def fake_download(self_, file_type, folder_dir):
-            Path(folder_dir, f"{self_.id}.{file_type}").write_bytes(b"CIF")
+            # 与真实 AFDBEntry.download 一致: 文件名取自 URL 尾部 (含版本)
+            url = self_.data[f"{file_type}Url"]
+            Path(folder_dir, url.split("/")[-1]).write_bytes(b"CIF")
 
         monkeypatch.setattr(AFDBEntry, "download", fake_download)
         out = afdb_files.fetch("P0DP23", fmt="cif", download_dir=str(tmp_path))
