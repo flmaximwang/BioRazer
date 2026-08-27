@@ -26,6 +26,16 @@
   g-/t/g+ 的离散 rotamer, 而是宽而对称性差的连续分布; 论文用 kernel 密度
   估计建模, 并额外提供 30 deg 离散 bin (每 bin 的均值/方差/占比) 以兼容
   SCWRL 等旧应用。bin 数见 ``DUNBRACK_ROTAMERS`` 的 ``non_rotameric_bins``。
+* ``SIDECHAIN_ROTAMER_LIB`` -- per-residue rotamer 库。单层键
+  ``<RES>_canonical``、``<RES>_g-``、``<RES>_g+``、``<RES>_t`` (2 轴残基为
+  ``<RES>_<a>_<b>``) 映射到 {chi_quad: {mean,std,lb,up,source}}。
+  ``canonical`` 等于 SIDECHAIN_IC_DIHEDRAL 模板几何 (覆盖 0-deg 状态)。
+  命名 rotamer 用 Dunbrack bin 中心; 非 rotameric 末端 chi 只在
+  ``canonical`` 中出现。完整骨架依赖数值表未内嵌。
+* ``SIDECHAIN_NON_ROTAMERIC_BINS`` -- per-residue 非 rotameric 末端 chi
+  (sp3-sp2/芳香) 细 bin 规范: chi 四元组 + 30 deg bin 数 (ASN/GLN/HIS/TRP
+  = 12, ASP/GLU/PHE/TYR = 6)。bin 数值 (中点均值) 尚未内嵌 (完整 Dunbrack
+  数据集许可待定)。
 
 所有角度单位 **度 (degree)**。数值记录统一为 ``{mean, std, lb, up,
 source}``; 查不到 spread 的字段为 ``np.nan`` (Rosetta ICOOR 只给理想点值)。
