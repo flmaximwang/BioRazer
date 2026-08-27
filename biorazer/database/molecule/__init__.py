@@ -22,7 +22,7 @@ per-module homes)::
     from biorazer.database.molecule import (
         AMINO_ACID_BOND_LENGTH,            # bond.length.generic
         AMINO_ACID_BOND_ANGLE,             # bond.angle.generic
-        SS_BB_TORSION_ANGLE,               # bond.dihedral.protein
+        SS_BB_TORSION_ANGLE,               # bond.dihedral.protein.by_ss
         IC_PATH,                           # icoor.protein.topology
         BACKBONE_IC_PATH,                  # icoor.protein.topology
         ATOM_RADIUS,                       # atom.radius

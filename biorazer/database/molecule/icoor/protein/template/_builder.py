@@ -122,7 +122,7 @@ def _element(atom_name):
 # --------------------------------------------------------------------------- #
 def ss_torsions(ss):
     """``{phi, psi, omega}`` mean values for a secondary-structure class, from
-    :data:`torsion_angle.backbone.SS_BB_TORSION_ANGLE`."""
+    :data:`biorazer.database.molecule.bond.dihedral.protein.by_ss.SS_BB_TORSION_ANGLE`."""
     v = SS_BB_TORSION_ANGLE[ss]
     return {"phi": v["phi"]["mean"], "psi": v["psi"]["mean"], "omega": v["omega"]["mean"]}
 
