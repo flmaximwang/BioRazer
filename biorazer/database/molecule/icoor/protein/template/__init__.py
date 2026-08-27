@@ -13,7 +13,8 @@ axes**:
   ideals ``g-/t/g+`` at ``-60/180/+60`` from
   :data:`biorazer.database.molecule.bond.dihedral.protein.ROTAMER_BIN`),
   with the side chain rebuilt to that rotamer and its IC-frame
-  bond/angle/dihedral measured at that conformer.
+  bond/angle/dihedral taken directly from the database tables (no
+  measure-from-coordinates round-trip; see :mod:`._builder`).
 
 Each residue lives in its own module (``gly.py``, ``ser.py``, ...) exposing
 ``RESN``, ``<RESN>_TEMPLATES = {ss: {rotamer: InternalCoord}}`` (with a
