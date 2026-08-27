@@ -1,7 +1,13 @@
 # -*- coding: utf-8 -*-
-"""Emit biorazer/database/molecule/bond/length/protein.py (sidechain part)
-+ biorazer/database/molecule/bond/angle/protein.py (sidechain part)
-from Rosetta fa_standard params.
+"""Emit the protein side-chain bond-length / bond-angle dicts from Rosetta
+fa_standard params.
+
+Targets:
+* ``AMINO_ACID_SIDECHAIN_BOND`` -> biorazer/database/molecule/bond/length/
+  protein/by_residue.py  (the merged length module; paste after the
+  ``AMINO_ACID_BOND_LENGTH_BY_RESIDUE`` dict)
+* ``AMINO_ACID_SIDECHAIN_BOND_ANGLE`` -> biorazer/database/molecule/bond/
+  angle/protein.py (sidechain part)
 
 Run (from the repo root)::
 

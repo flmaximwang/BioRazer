@@ -577,7 +577,7 @@ class InternalCoord:
             BACKBONE_IC_PATH,
             IC_PATH,
         )
-        from biorazer.database.molecule.bond.length.generic import AMINO_ACID_BOND_LENGTH
+        from biorazer.database.molecule.bond.length.protein import AMINO_ACID_BOND_LENGTH
 
         n = len(arr)
         atoms = [InternalCoordAtom.from_atom(arr, i) for i in range(n)]

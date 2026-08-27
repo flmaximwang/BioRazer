@@ -19,7 +19,6 @@ import numpy as np
 import pytest
 
 from biorazer.database import molecule as M
-from biorazer.database.molecule.bond.length import generic as len_generic
 from biorazer.database.molecule.bond.length import protein as len_protein
 from biorazer.database.molecule.bond.angle import generic as ang_generic
 from biorazer.database.molecule.bond.angle import protein as ang_protein
@@ -37,8 +36,8 @@ class TestPackageLayout:
         assert set(M.__all__) <= set(dir(M))
 
     def test_identity_with_module_homes(self):
-        assert M.AMINO_ACID_BOND_LENGTH is len_generic.AMINO_ACID_BOND_LENGTH
-        assert M.BOND_REFS is len_generic.BOND_REFS
+        assert M.AMINO_ACID_BOND_LENGTH is len_protein.AMINO_ACID_BOND_LENGTH
+        assert M.BOND_REFS is len_protein.BOND_REFS
         assert M.AMINO_ACID_BOND_LENGTH_BY_RESIDUE is len_protein.AMINO_ACID_BOND_LENGTH_BY_RESIDUE
         assert M.AMINO_ACID_SIDECHAIN_BOND is len_protein.AMINO_ACID_SIDECHAIN_BOND
         assert M.AMINO_ACID_BOND_ANGLE is ang_generic.AMINO_ACID_BOND_ANGLE
