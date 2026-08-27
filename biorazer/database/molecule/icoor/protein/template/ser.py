@@ -8,63 +8,61 @@ Each template is the ideal heavy-atom topology for {aa} anchored at
 :mod:`._builder` for the build rule and the per-conformer caveat.
 """
 
-from biorazer.database.molecule.icoor.protein.template._builder import make_residue_templates
+from biorazer.database.molecule.icoor.protein.template._builder import build_template
 
 RESN = "SER"
-#: {ss: {rotamer: :class:`~biorazer.structure.objects.InternalCoord`}}
-SER_TEMPLATES = make_residue_templates(RESN)
 
 # === GENERATED IC_* named templates - do not edit below ===
 # Regenerate with: /opt/envs/BioRazer/bin/python scripts/generate_internal_coord_template_named.py
 
-IC_Ser_HelixAlpha = SER_TEMPLATES['alpha-helix']['canonical']
-IC_Ser_HelixAlpha_gminus = SER_TEMPLATES['alpha-helix']['g-']
-IC_Ser_HelixAlpha_trans = SER_TEMPLATES['alpha-helix']['t']
-IC_Ser_HelixAlpha_gplus = SER_TEMPLATES['alpha-helix']['g+']
-IC_Ser_Helix310 = SER_TEMPLATES['3-10-helix']['canonical']
-IC_Ser_Helix310_gminus = SER_TEMPLATES['3-10-helix']['g-']
-IC_Ser_Helix310_trans = SER_TEMPLATES['3-10-helix']['t']
-IC_Ser_Helix310_gplus = SER_TEMPLATES['3-10-helix']['g+']
-IC_Ser_HelixPi = SER_TEMPLATES['pi-helix']['canonical']
-IC_Ser_HelixPi_gminus = SER_TEMPLATES['pi-helix']['g-']
-IC_Ser_HelixPi_trans = SER_TEMPLATES['pi-helix']['t']
-IC_Ser_HelixPi_gplus = SER_TEMPLATES['pi-helix']['g+']
-IC_Ser_HelixPPII = SER_TEMPLATES['polyproline-II']['canonical']
-IC_Ser_HelixPPII_gminus = SER_TEMPLATES['polyproline-II']['g-']
-IC_Ser_HelixPPII_trans = SER_TEMPLATES['polyproline-II']['t']
-IC_Ser_HelixPPII_gplus = SER_TEMPLATES['polyproline-II']['g+']
-IC_Ser_Strand = SER_TEMPLATES['beta-strand']['canonical']
-IC_Ser_Strand_gminus = SER_TEMPLATES['beta-strand']['g-']
-IC_Ser_Strand_trans = SER_TEMPLATES['beta-strand']['t']
-IC_Ser_Strand_gplus = SER_TEMPLATES['beta-strand']['g+']
-IC_Ser_StrandParallel = SER_TEMPLATES['parallel-beta-strand']['canonical']
-IC_Ser_StrandParallel_gminus = SER_TEMPLATES['parallel-beta-strand']['g-']
-IC_Ser_StrandParallel_trans = SER_TEMPLATES['parallel-beta-strand']['t']
-IC_Ser_StrandParallel_gplus = SER_TEMPLATES['parallel-beta-strand']['g+']
-IC_Ser_StrandAntiParallel = SER_TEMPLATES['antiparallel-beta-strand']['canonical']
-IC_Ser_StrandAntiParallel_gminus = SER_TEMPLATES['antiparallel-beta-strand']['g-']
-IC_Ser_StrandAntiParallel_trans = SER_TEMPLATES['antiparallel-beta-strand']['t']
-IC_Ser_StrandAntiParallel_gplus = SER_TEMPLATES['antiparallel-beta-strand']['g+']
-IC_Ser_Bridge = SER_TEMPLATES['beta-bridge']['canonical']
-IC_Ser_Bridge_gminus = SER_TEMPLATES['beta-bridge']['g-']
-IC_Ser_Bridge_trans = SER_TEMPLATES['beta-bridge']['t']
-IC_Ser_Bridge_gplus = SER_TEMPLATES['beta-bridge']['g+']
-IC_Ser_Turn = SER_TEMPLATES['turn']['canonical']
-IC_Ser_Turn_gminus = SER_TEMPLATES['turn']['g-']
-IC_Ser_Turn_trans = SER_TEMPLATES['turn']['t']
-IC_Ser_Turn_gplus = SER_TEMPLATES['turn']['g+']
-IC_Ser_Bend = SER_TEMPLATES['bend']['canonical']
-IC_Ser_Bend_gminus = SER_TEMPLATES['bend']['g-']
-IC_Ser_Bend_trans = SER_TEMPLATES['bend']['t']
-IC_Ser_Bend_gplus = SER_TEMPLATES['bend']['g+']
-IC_Ser_Coil = SER_TEMPLATES['coil']['canonical']
-IC_Ser_Coil_gminus = SER_TEMPLATES['coil']['g-']
-IC_Ser_Coil_trans = SER_TEMPLATES['coil']['t']
-IC_Ser_Coil_gplus = SER_TEMPLATES['coil']['g+']
-IC_Ser_CisPeptide = SER_TEMPLATES['cis-peptide-bond']['canonical']
-IC_Ser_CisPeptide_gminus = SER_TEMPLATES['cis-peptide-bond']['g-']
-IC_Ser_CisPeptide_trans = SER_TEMPLATES['cis-peptide-bond']['t']
-IC_Ser_CisPeptide_gplus = SER_TEMPLATES['cis-peptide-bond']['g+']
+IC_Ser_HelixAlpha = build_template('SER', 'alpha-helix', 'canonical')
+IC_Ser_HelixAlpha_gminus = build_template('SER', 'alpha-helix', 'g-')
+IC_Ser_HelixAlpha_trans = build_template('SER', 'alpha-helix', 't')
+IC_Ser_HelixAlpha_gplus = build_template('SER', 'alpha-helix', 'g+')
+IC_Ser_Helix310 = build_template('SER', '3-10-helix', 'canonical')
+IC_Ser_Helix310_gminus = build_template('SER', '3-10-helix', 'g-')
+IC_Ser_Helix310_trans = build_template('SER', '3-10-helix', 't')
+IC_Ser_Helix310_gplus = build_template('SER', '3-10-helix', 'g+')
+IC_Ser_HelixPi = build_template('SER', 'pi-helix', 'canonical')
+IC_Ser_HelixPi_gminus = build_template('SER', 'pi-helix', 'g-')
+IC_Ser_HelixPi_trans = build_template('SER', 'pi-helix', 't')
+IC_Ser_HelixPi_gplus = build_template('SER', 'pi-helix', 'g+')
+IC_Ser_HelixPPII = build_template('SER', 'polyproline-II', 'canonical')
+IC_Ser_HelixPPII_gminus = build_template('SER', 'polyproline-II', 'g-')
+IC_Ser_HelixPPII_trans = build_template('SER', 'polyproline-II', 't')
+IC_Ser_HelixPPII_gplus = build_template('SER', 'polyproline-II', 'g+')
+IC_Ser_Strand = build_template('SER', 'beta-strand', 'canonical')
+IC_Ser_Strand_gminus = build_template('SER', 'beta-strand', 'g-')
+IC_Ser_Strand_trans = build_template('SER', 'beta-strand', 't')
+IC_Ser_Strand_gplus = build_template('SER', 'beta-strand', 'g+')
+IC_Ser_StrandParallel = build_template('SER', 'parallel-beta-strand', 'canonical')
+IC_Ser_StrandParallel_gminus = build_template('SER', 'parallel-beta-strand', 'g-')
+IC_Ser_StrandParallel_trans = build_template('SER', 'parallel-beta-strand', 't')
+IC_Ser_StrandParallel_gplus = build_template('SER', 'parallel-beta-strand', 'g+')
+IC_Ser_StrandAntiParallel = build_template('SER', 'antiparallel-beta-strand', 'canonical')
+IC_Ser_StrandAntiParallel_gminus = build_template('SER', 'antiparallel-beta-strand', 'g-')
+IC_Ser_StrandAntiParallel_trans = build_template('SER', 'antiparallel-beta-strand', 't')
+IC_Ser_StrandAntiParallel_gplus = build_template('SER', 'antiparallel-beta-strand', 'g+')
+IC_Ser_Bridge = build_template('SER', 'beta-bridge', 'canonical')
+IC_Ser_Bridge_gminus = build_template('SER', 'beta-bridge', 'g-')
+IC_Ser_Bridge_trans = build_template('SER', 'beta-bridge', 't')
+IC_Ser_Bridge_gplus = build_template('SER', 'beta-bridge', 'g+')
+IC_Ser_Turn = build_template('SER', 'turn', 'canonical')
+IC_Ser_Turn_gminus = build_template('SER', 'turn', 'g-')
+IC_Ser_Turn_trans = build_template('SER', 'turn', 't')
+IC_Ser_Turn_gplus = build_template('SER', 'turn', 'g+')
+IC_Ser_Bend = build_template('SER', 'bend', 'canonical')
+IC_Ser_Bend_gminus = build_template('SER', 'bend', 'g-')
+IC_Ser_Bend_trans = build_template('SER', 'bend', 't')
+IC_Ser_Bend_gplus = build_template('SER', 'bend', 'g+')
+IC_Ser_Coil = build_template('SER', 'coil', 'canonical')
+IC_Ser_Coil_gminus = build_template('SER', 'coil', 'g-')
+IC_Ser_Coil_trans = build_template('SER', 'coil', 't')
+IC_Ser_Coil_gplus = build_template('SER', 'coil', 'g+')
+IC_Ser_CisPeptide = build_template('SER', 'cis-peptide-bond', 'canonical')
+IC_Ser_CisPeptide_gminus = build_template('SER', 'cis-peptide-bond', 'g-')
+IC_Ser_CisPeptide_trans = build_template('SER', 'cis-peptide-bond', 't')
+IC_Ser_CisPeptide_gplus = build_template('SER', 'cis-peptide-bond', 'g+')
 
 __all__ = [
     'IC_Ser_Bend',

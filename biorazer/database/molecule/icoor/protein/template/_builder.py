@@ -283,49 +283,4 @@ def build_template(resn, ss, rotamer="canonical"):
     return ic
 
 
-def build_template_direct(resn, ss, rotamer="canonical"):
-    """Direct-fill alias of :func:`build_template`.
 
-    Kept for backward compatibility: ``build_template`` is now the direct
-    table-fill path (no Cartesian round-trip), so both names are equivalent.
-
-    Examples
-    --------
-    >>> ic = build_template_direct("SER", "coil", "t")
-    >>> [a.name for a in ic.atoms]
-    ['N', 'CA', 'C', 'O', 'CB', 'OG']
-    >>> ic.rotamer, ic.ss
-    ('t', 'coil')
-    """
-    return build_template(resn, ss, rotamer)
-
-
-def make_residue_templates(resn):
-    """``{ss: {rotamer: InternalCoord}}`` for all SS classes x common rotamers.
-
-    Iterates every SS key of ``SS_BB_TORSION_ANGLE`` (12 classes) and every
-    rotamer from :func:`rotamer_names`.
-
-    Examples
-    --------
-    >>> t = make_residue_templates("LEU")
-    >>> len(t)                              # 12 SS classes
-    12
-    >>> list(t.keys())[:3]
-    ['alpha-helix', '3-10-helix', 'pi-helix']
-    >>> list(t["alpha-helix"].keys())       # canonical + 9 chi1/chi2 rotamers
-    ['canonical', 'g-/g-', 'g-/t', 'g-/g+', 't/g-', 't/t', 't/g+', 'g+/g-', 'g+/t', 'g+/g+']
-    >>> ic = t["coil"]["canonical"]
-    >>> ic.phi, ic.psi, ic.omega            # coil means
-    (0.0, 0.0, 180.0)
-    >>> [a.name for a in ic.atoms]          # LEU side chain CB, CG, CD1, CD2
-    ['N', 'CA', 'C', 'O', 'CB', 'CG', 'CD1', 'CD2']
-
-    >>> ta = make_residue_templates("ALA")
-    >>> list(ta["coil"].keys())             # 0 chi axis -> canonical only
-    ['canonical']
-    """
-    out = {}
-    for ss in SS_BB_TORSION_ANGLE:
-        out[ss] = {r: build_template(resn, ss, r) for r in rotamer_names(resn)}
-    return out

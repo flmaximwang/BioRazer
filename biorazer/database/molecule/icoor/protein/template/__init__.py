@@ -17,16 +17,16 @@ axes**:
   measure-from-coordinates round-trip; see :mod:`._builder`).
 
 Each residue lives in its own module (``gly.py``, ``ser.py``, ...) exposing
-``RESN``, ``<RESN>_TEMPLATES = {ss: {rotamer: InternalCoord}}`` (with a
-``"canonical"`` representative first) **and its own named template constants**,
-so the named templates live right next to their residue.
+``RESN`` and its **own named template constants** ``IC_<Res>_<SS>[_<rotamer>]``,
+each built directly from :func:`build_template` (no intermediate
+``{ss: {rotamer}}`` dict), so the named templates live right next to their
+residue.
 
 Usage::
 
-    from biorazer.database.molecule.icoor.protein.template import get_template, templates
+    from biorazer.database.molecule.icoor.protein.template import get_template
 
     ic = get_template("SER", "alpha-helix", "g-")   # one template
-    ser = templates("SER")                           # {ss: {rotamer: ic}}
     ic.phi, ic.psi, ic.omega                          # -60.0, -45.0, 180.0
     ic.to_atomarray()                                 # build the residue
 
@@ -38,23 +38,23 @@ Named single-template constants (real, visible, per residue)::
     IC_Ser_HelixAlpha_gminus     # == get_template("SER", "alpha-helix", "g-")
 
 Each is a literal constant ``IC_<Res>_<SS>[_<rotamer>]`` defined in its residue
-module (``IC_Gly_*`` in ``gly.py``, ``IC_Ser_*`` in ``ser.py``, ...), aliasing
-that residue's own ``<RESN>_TEMPLATES`` entries -- ``<Res>`` the residue title
-token (``Gly``), ``<SS>`` a secondary-structure token (``HelixAlpha`` for
+module (``IC_Gly_*`` in ``gly.py``, ``IC_Ser_*`` in ``ser.py``, ...), built
+directly from :func:`build_template` -- ``<Res>`` the residue title token
+(``Gly``), ``<SS>`` a secondary-structure token (``HelixAlpha`` for
 ``alpha-helix``, see :data:`SS_TOKEN`), plus an optional sanitized rotamer
 suffix (``gminus``/``trans``/``gplus``, 2-axis rotamers joined by ``_``).  The
 canonical representative is ``IC_<Res>_<SS>``.  They are re-exported here so the
-package path works; all ``IC_*`` alias the cached ``templates`` objects.
+package path works.
 
 A residue's own atoms cannot determine ``phi/psi`` (those need its neighbours),
 so the per-SS differentiation is carried as the ``ic.phi/psi/omega`` attrs with
 the geometry anchored at ``{N, CA, C}`` --- the Rosetta residue-params model.
 See :mod:`._builder` for the exact build rule and the per-conformer caveat.
 
-Current build: 20 residues, ``templates(resn)`` = 12 SS classes x
+Current build: 20 residues, ``get_template`` over 12 SS classes x
 (1 canonical + 0/3/9 common rotamers).  The named constants in every residue
-module reference its ``<RESN>_TEMPLATES`` eagerly, so importing this package
-builds all templates up front.
+module call :func:`build_template` eagerly, so importing this package builds all
+templates up front.
 """
 
 from __future__ import annotations
@@ -65,8 +65,6 @@ from biorazer.database.molecule.bond.dihedral.protein import SS_BB_TORSION_ANGLE
 
 from ._builder import (  # noqa: F401  (re-exported helpers)
     build_template,
-    build_template_direct,
-    make_residue_templates,
     rotamer_names,
     ss_torsions,
 )
@@ -99,25 +97,37 @@ def _module(resn):
     return _MODULES[resn]
 
 
-def templates(resn):
-    """The ``{ss: {rotamer: InternalCoord}}`` map for a residue (lazy)."""
-    return getattr(_module(resn), f"{resn}_TEMPLATES")
-
-
 def get_template(resn, ss, rotamer="canonical"):
-    """A single ``InternalCoord`` template for ``resn`` at ``ss`` x ``rotamer``."""
+    """A single ``InternalCoord`` template for ``resn`` at ``ss`` x ``rotamer``.
+
+    Resolves to the residue module's literal named constant
+    ``IC_<Res>_<SS>[_<rotamer>]``, which is built directly from
+    :func:`build_template`.
+    """
+    name = template_token(resn, ss, rotamer)
     try:
-        return templates(resn)[ss][rotamer]
-    except KeyError:
-        raise KeyError(f"no {resn} template for ss={ss!r} rotamer={rotamer!r} "
-                       f"(ss in {SS_CLASSES}; rotamers of {resn}: {rotamer_names(resn)})") from None
+        return getattr(_module(resn), name)
+    except AttributeError:
+        raise KeyError(
+            f"no {resn} template for ss={ss!r} rotamer={rotamer!r} "
+            f"(ss in {SS_CLASSES}; rotamers of {resn}: {rotamer_names(resn)})"
+        ) from None
+
+
+def templates(resn):
+    """The ``{ss: {rotamer: InternalCoord}}`` map for a residue (built on the
+    fly from its named :func:`build_template` constants)."""
+    return {
+        ss: {rot: get_template(resn, ss, rot) for rot in rotamer_names(resn)}
+        for ss in SS_CLASSES
+    }
 
 
 __all__ = [
     "RESIDUES", "SS_CLASSES",
     "IC_PATH", "MAINCHAIN_ATOMS",
-    "build_template", "build_template_direct",
-    "make_residue_templates", "rotamer_names", "ss_torsions",
+    "build_template",
+    "rotamer_names", "ss_torsions",
     "templates", "get_template",
     "SS_TOKEN", "ROTAMER_TOKEN", "rotamer_token", "template_token",
 ]

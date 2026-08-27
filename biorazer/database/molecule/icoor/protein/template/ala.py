@@ -8,27 +8,25 @@ Each template is the ideal heavy-atom topology for {aa} anchored at
 :mod:`._builder` for the build rule and the per-conformer caveat.
 """
 
-from biorazer.database.molecule.icoor.protein.template._builder import make_residue_templates
+from biorazer.database.molecule.icoor.protein.template._builder import build_template
 
 RESN = "ALA"
-#: {ss: {rotamer: :class:`~biorazer.structure.objects.InternalCoord`}}
-ALA_TEMPLATES = make_residue_templates(RESN)
 
 # === GENERATED IC_* named templates - do not edit below ===
 # Regenerate with: /opt/envs/BioRazer/bin/python scripts/generate_internal_coord_template_named.py
 
-IC_Ala_HelixAlpha = ALA_TEMPLATES['alpha-helix']['canonical']
-IC_Ala_Helix310 = ALA_TEMPLATES['3-10-helix']['canonical']
-IC_Ala_HelixPi = ALA_TEMPLATES['pi-helix']['canonical']
-IC_Ala_HelixPPII = ALA_TEMPLATES['polyproline-II']['canonical']
-IC_Ala_Strand = ALA_TEMPLATES['beta-strand']['canonical']
-IC_Ala_StrandParallel = ALA_TEMPLATES['parallel-beta-strand']['canonical']
-IC_Ala_StrandAntiParallel = ALA_TEMPLATES['antiparallel-beta-strand']['canonical']
-IC_Ala_Bridge = ALA_TEMPLATES['beta-bridge']['canonical']
-IC_Ala_Turn = ALA_TEMPLATES['turn']['canonical']
-IC_Ala_Bend = ALA_TEMPLATES['bend']['canonical']
-IC_Ala_Coil = ALA_TEMPLATES['coil']['canonical']
-IC_Ala_CisPeptide = ALA_TEMPLATES['cis-peptide-bond']['canonical']
+IC_Ala_HelixAlpha = build_template('ALA', 'alpha-helix', 'canonical')
+IC_Ala_Helix310 = build_template('ALA', '3-10-helix', 'canonical')
+IC_Ala_HelixPi = build_template('ALA', 'pi-helix', 'canonical')
+IC_Ala_HelixPPII = build_template('ALA', 'polyproline-II', 'canonical')
+IC_Ala_Strand = build_template('ALA', 'beta-strand', 'canonical')
+IC_Ala_StrandParallel = build_template('ALA', 'parallel-beta-strand', 'canonical')
+IC_Ala_StrandAntiParallel = build_template('ALA', 'antiparallel-beta-strand', 'canonical')
+IC_Ala_Bridge = build_template('ALA', 'beta-bridge', 'canonical')
+IC_Ala_Turn = build_template('ALA', 'turn', 'canonical')
+IC_Ala_Bend = build_template('ALA', 'bend', 'canonical')
+IC_Ala_Coil = build_template('ALA', 'coil', 'canonical')
+IC_Ala_CisPeptide = build_template('ALA', 'cis-peptide-bond', 'canonical')
 
 __all__ = [
     'IC_Ala_Bend',

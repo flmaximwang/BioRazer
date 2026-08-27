@@ -8,63 +8,61 @@ Each template is the ideal heavy-atom topology for {aa} anchored at
 :mod:`._builder` for the build rule and the per-conformer caveat.
 """
 
-from biorazer.database.molecule.icoor.protein.template._builder import make_residue_templates
+from biorazer.database.molecule.icoor.protein.template._builder import build_template
 
 RESN = "THR"
-#: {ss: {rotamer: :class:`~biorazer.structure.objects.InternalCoord`}}
-THR_TEMPLATES = make_residue_templates(RESN)
 
 # === GENERATED IC_* named templates - do not edit below ===
 # Regenerate with: /opt/envs/BioRazer/bin/python scripts/generate_internal_coord_template_named.py
 
-IC_Thr_HelixAlpha = THR_TEMPLATES['alpha-helix']['canonical']
-IC_Thr_HelixAlpha_gminus = THR_TEMPLATES['alpha-helix']['g-']
-IC_Thr_HelixAlpha_trans = THR_TEMPLATES['alpha-helix']['t']
-IC_Thr_HelixAlpha_gplus = THR_TEMPLATES['alpha-helix']['g+']
-IC_Thr_Helix310 = THR_TEMPLATES['3-10-helix']['canonical']
-IC_Thr_Helix310_gminus = THR_TEMPLATES['3-10-helix']['g-']
-IC_Thr_Helix310_trans = THR_TEMPLATES['3-10-helix']['t']
-IC_Thr_Helix310_gplus = THR_TEMPLATES['3-10-helix']['g+']
-IC_Thr_HelixPi = THR_TEMPLATES['pi-helix']['canonical']
-IC_Thr_HelixPi_gminus = THR_TEMPLATES['pi-helix']['g-']
-IC_Thr_HelixPi_trans = THR_TEMPLATES['pi-helix']['t']
-IC_Thr_HelixPi_gplus = THR_TEMPLATES['pi-helix']['g+']
-IC_Thr_HelixPPII = THR_TEMPLATES['polyproline-II']['canonical']
-IC_Thr_HelixPPII_gminus = THR_TEMPLATES['polyproline-II']['g-']
-IC_Thr_HelixPPII_trans = THR_TEMPLATES['polyproline-II']['t']
-IC_Thr_HelixPPII_gplus = THR_TEMPLATES['polyproline-II']['g+']
-IC_Thr_Strand = THR_TEMPLATES['beta-strand']['canonical']
-IC_Thr_Strand_gminus = THR_TEMPLATES['beta-strand']['g-']
-IC_Thr_Strand_trans = THR_TEMPLATES['beta-strand']['t']
-IC_Thr_Strand_gplus = THR_TEMPLATES['beta-strand']['g+']
-IC_Thr_StrandParallel = THR_TEMPLATES['parallel-beta-strand']['canonical']
-IC_Thr_StrandParallel_gminus = THR_TEMPLATES['parallel-beta-strand']['g-']
-IC_Thr_StrandParallel_trans = THR_TEMPLATES['parallel-beta-strand']['t']
-IC_Thr_StrandParallel_gplus = THR_TEMPLATES['parallel-beta-strand']['g+']
-IC_Thr_StrandAntiParallel = THR_TEMPLATES['antiparallel-beta-strand']['canonical']
-IC_Thr_StrandAntiParallel_gminus = THR_TEMPLATES['antiparallel-beta-strand']['g-']
-IC_Thr_StrandAntiParallel_trans = THR_TEMPLATES['antiparallel-beta-strand']['t']
-IC_Thr_StrandAntiParallel_gplus = THR_TEMPLATES['antiparallel-beta-strand']['g+']
-IC_Thr_Bridge = THR_TEMPLATES['beta-bridge']['canonical']
-IC_Thr_Bridge_gminus = THR_TEMPLATES['beta-bridge']['g-']
-IC_Thr_Bridge_trans = THR_TEMPLATES['beta-bridge']['t']
-IC_Thr_Bridge_gplus = THR_TEMPLATES['beta-bridge']['g+']
-IC_Thr_Turn = THR_TEMPLATES['turn']['canonical']
-IC_Thr_Turn_gminus = THR_TEMPLATES['turn']['g-']
-IC_Thr_Turn_trans = THR_TEMPLATES['turn']['t']
-IC_Thr_Turn_gplus = THR_TEMPLATES['turn']['g+']
-IC_Thr_Bend = THR_TEMPLATES['bend']['canonical']
-IC_Thr_Bend_gminus = THR_TEMPLATES['bend']['g-']
-IC_Thr_Bend_trans = THR_TEMPLATES['bend']['t']
-IC_Thr_Bend_gplus = THR_TEMPLATES['bend']['g+']
-IC_Thr_Coil = THR_TEMPLATES['coil']['canonical']
-IC_Thr_Coil_gminus = THR_TEMPLATES['coil']['g-']
-IC_Thr_Coil_trans = THR_TEMPLATES['coil']['t']
-IC_Thr_Coil_gplus = THR_TEMPLATES['coil']['g+']
-IC_Thr_CisPeptide = THR_TEMPLATES['cis-peptide-bond']['canonical']
-IC_Thr_CisPeptide_gminus = THR_TEMPLATES['cis-peptide-bond']['g-']
-IC_Thr_CisPeptide_trans = THR_TEMPLATES['cis-peptide-bond']['t']
-IC_Thr_CisPeptide_gplus = THR_TEMPLATES['cis-peptide-bond']['g+']
+IC_Thr_HelixAlpha = build_template('THR', 'alpha-helix', 'canonical')
+IC_Thr_HelixAlpha_gminus = build_template('THR', 'alpha-helix', 'g-')
+IC_Thr_HelixAlpha_trans = build_template('THR', 'alpha-helix', 't')
+IC_Thr_HelixAlpha_gplus = build_template('THR', 'alpha-helix', 'g+')
+IC_Thr_Helix310 = build_template('THR', '3-10-helix', 'canonical')
+IC_Thr_Helix310_gminus = build_template('THR', '3-10-helix', 'g-')
+IC_Thr_Helix310_trans = build_template('THR', '3-10-helix', 't')
+IC_Thr_Helix310_gplus = build_template('THR', '3-10-helix', 'g+')
+IC_Thr_HelixPi = build_template('THR', 'pi-helix', 'canonical')
+IC_Thr_HelixPi_gminus = build_template('THR', 'pi-helix', 'g-')
+IC_Thr_HelixPi_trans = build_template('THR', 'pi-helix', 't')
+IC_Thr_HelixPi_gplus = build_template('THR', 'pi-helix', 'g+')
+IC_Thr_HelixPPII = build_template('THR', 'polyproline-II', 'canonical')
+IC_Thr_HelixPPII_gminus = build_template('THR', 'polyproline-II', 'g-')
+IC_Thr_HelixPPII_trans = build_template('THR', 'polyproline-II', 't')
+IC_Thr_HelixPPII_gplus = build_template('THR', 'polyproline-II', 'g+')
+IC_Thr_Strand = build_template('THR', 'beta-strand', 'canonical')
+IC_Thr_Strand_gminus = build_template('THR', 'beta-strand', 'g-')
+IC_Thr_Strand_trans = build_template('THR', 'beta-strand', 't')
+IC_Thr_Strand_gplus = build_template('THR', 'beta-strand', 'g+')
+IC_Thr_StrandParallel = build_template('THR', 'parallel-beta-strand', 'canonical')
+IC_Thr_StrandParallel_gminus = build_template('THR', 'parallel-beta-strand', 'g-')
+IC_Thr_StrandParallel_trans = build_template('THR', 'parallel-beta-strand', 't')
+IC_Thr_StrandParallel_gplus = build_template('THR', 'parallel-beta-strand', 'g+')
+IC_Thr_StrandAntiParallel = build_template('THR', 'antiparallel-beta-strand', 'canonical')
+IC_Thr_StrandAntiParallel_gminus = build_template('THR', 'antiparallel-beta-strand', 'g-')
+IC_Thr_StrandAntiParallel_trans = build_template('THR', 'antiparallel-beta-strand', 't')
+IC_Thr_StrandAntiParallel_gplus = build_template('THR', 'antiparallel-beta-strand', 'g+')
+IC_Thr_Bridge = build_template('THR', 'beta-bridge', 'canonical')
+IC_Thr_Bridge_gminus = build_template('THR', 'beta-bridge', 'g-')
+IC_Thr_Bridge_trans = build_template('THR', 'beta-bridge', 't')
+IC_Thr_Bridge_gplus = build_template('THR', 'beta-bridge', 'g+')
+IC_Thr_Turn = build_template('THR', 'turn', 'canonical')
+IC_Thr_Turn_gminus = build_template('THR', 'turn', 'g-')
+IC_Thr_Turn_trans = build_template('THR', 'turn', 't')
+IC_Thr_Turn_gplus = build_template('THR', 'turn', 'g+')
+IC_Thr_Bend = build_template('THR', 'bend', 'canonical')
+IC_Thr_Bend_gminus = build_template('THR', 'bend', 'g-')
+IC_Thr_Bend_trans = build_template('THR', 'bend', 't')
+IC_Thr_Bend_gplus = build_template('THR', 'bend', 'g+')
+IC_Thr_Coil = build_template('THR', 'coil', 'canonical')
+IC_Thr_Coil_gminus = build_template('THR', 'coil', 'g-')
+IC_Thr_Coil_trans = build_template('THR', 'coil', 't')
+IC_Thr_Coil_gplus = build_template('THR', 'coil', 'g+')
+IC_Thr_CisPeptide = build_template('THR', 'cis-peptide-bond', 'canonical')
+IC_Thr_CisPeptide_gminus = build_template('THR', 'cis-peptide-bond', 'g-')
+IC_Thr_CisPeptide_trans = build_template('THR', 'cis-peptide-bond', 't')
+IC_Thr_CisPeptide_gplus = build_template('THR', 'cis-peptide-bond', 'g+')
 
 __all__ = [
     'IC_Thr_Bend',

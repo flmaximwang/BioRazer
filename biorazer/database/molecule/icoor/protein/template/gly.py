@@ -8,27 +8,25 @@ Each template is the ideal heavy-atom topology for {aa} anchored at
 :mod:`._builder` for the build rule and the per-conformer caveat.
 """
 
-from biorazer.database.molecule.icoor.protein.template._builder import make_residue_templates
+from biorazer.database.molecule.icoor.protein.template._builder import build_template
 
 RESN = "GLY"
-#: {ss: {rotamer: :class:`~biorazer.structure.objects.InternalCoord`}}
-GLY_TEMPLATES = make_residue_templates(RESN)
 
 # === GENERATED IC_* named templates - do not edit below ===
 # Regenerate with: /opt/envs/BioRazer/bin/python scripts/generate_internal_coord_template_named.py
 
-IC_Gly_HelixAlpha = GLY_TEMPLATES['alpha-helix']['canonical']
-IC_Gly_Helix310 = GLY_TEMPLATES['3-10-helix']['canonical']
-IC_Gly_HelixPi = GLY_TEMPLATES['pi-helix']['canonical']
-IC_Gly_HelixPPII = GLY_TEMPLATES['polyproline-II']['canonical']
-IC_Gly_Strand = GLY_TEMPLATES['beta-strand']['canonical']
-IC_Gly_StrandParallel = GLY_TEMPLATES['parallel-beta-strand']['canonical']
-IC_Gly_StrandAntiParallel = GLY_TEMPLATES['antiparallel-beta-strand']['canonical']
-IC_Gly_Bridge = GLY_TEMPLATES['beta-bridge']['canonical']
-IC_Gly_Turn = GLY_TEMPLATES['turn']['canonical']
-IC_Gly_Bend = GLY_TEMPLATES['bend']['canonical']
-IC_Gly_Coil = GLY_TEMPLATES['coil']['canonical']
-IC_Gly_CisPeptide = GLY_TEMPLATES['cis-peptide-bond']['canonical']
+IC_Gly_HelixAlpha = build_template('GLY', 'alpha-helix', 'canonical')
+IC_Gly_Helix310 = build_template('GLY', '3-10-helix', 'canonical')
+IC_Gly_HelixPi = build_template('GLY', 'pi-helix', 'canonical')
+IC_Gly_HelixPPII = build_template('GLY', 'polyproline-II', 'canonical')
+IC_Gly_Strand = build_template('GLY', 'beta-strand', 'canonical')
+IC_Gly_StrandParallel = build_template('GLY', 'parallel-beta-strand', 'canonical')
+IC_Gly_StrandAntiParallel = build_template('GLY', 'antiparallel-beta-strand', 'canonical')
+IC_Gly_Bridge = build_template('GLY', 'beta-bridge', 'canonical')
+IC_Gly_Turn = build_template('GLY', 'turn', 'canonical')
+IC_Gly_Bend = build_template('GLY', 'bend', 'canonical')
+IC_Gly_Coil = build_template('GLY', 'coil', 'canonical')
+IC_Gly_CisPeptide = build_template('GLY', 'cis-peptide-bond', 'canonical')
 
 __all__ = [
     'IC_Gly_Bend',
