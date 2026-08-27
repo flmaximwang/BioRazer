@@ -6,7 +6,7 @@ Cartesian placement, no measure-from-coordinates round-trip).
 Public API
 ----------
 This module is the single entry point of the
-``biorazer.database.molecule.icoor.protein.template`` package::
+``biorazer.database.molecule.icoor.protein`` subpackage's template store::
 
     from biorazer.database.molecule.icoor.protein import template
 
