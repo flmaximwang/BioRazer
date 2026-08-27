@@ -239,3 +239,77 @@ SIDECHAIN_DIHE_REFS = {
     "rosetta_params_408": "Rosetta 408 ... l-caa/*.params (ICOOR_INTERNAL 规范残基理想几何)",
     "dunbrack_2010": "Shapovalov MV, Dunbrack RL Jr. A smoothed backbone-dependent rotamer library. Structure 19:844-858, 2011."
 }
+
+#: 非 rotameric 末端 chi (sp2/芳香末端) 的细 bin 规范: chi 四元组 + 30 deg
+#: bin 数 (SCWRL 兼容)。ASN/GLN/HIS/TRP = 12, ASP/GLU/PHE/TYR = 6。这些
+#: 末端 chi 不是 g-/g+/t 离散 rotamer, 而是宽而对称性差的连续分布, 用
+#: NON_ROTAMERIC_BIN_WIDTH 的细 bin 离散化。bin 数值 (中点均值) 尚未内嵌
+#: (完整 Dunbrack 数据集许可待定), 仅记录 quad + bin 数 + 宽度。
+SIDECHAIN_NON_ROTAMERIC_BINS = {
+    'ASN': {'chi_quad': ('CA', 'CB', 'CG', 'OD1'), 'bins': 12},
+    'ASP': {'chi_quad': ('CA', 'CB', 'CG', 'OD1'), 'bins': 6},
+    'GLN': {'chi_quad': ('CB', 'CG', 'CD', 'OE1'),  'bins': 12},
+    'GLU': {'chi_quad': ('CB', 'CG', 'CD', 'OE1'),  'bins': 6},
+    'HIS': {'chi_quad': ('CA', 'CB', 'CG', 'ND1'),  'bins': 12},
+    'PHE': {'chi_quad': ('CA', 'CB', 'CG', 'CD1'),  'bins': 6},
+    'TRP': {'chi_quad': ('CA', 'CB', 'CG', 'CD1'),  'bins': 12},
+    'TYR': {'chi_quad': ('CA', 'CB', 'CG', 'CD1'),  'bins': 6},
+}
+
+
+def _build_rotamer_lib():
+    """Build the per-residue rotamer library programmatically.
+
+    Single-level keys ``<RES>_canonical``, ``<RES>_g-``, ``<RES>_g+``,
+    ``<RES>_t`` (and ``<RES>_<a>_<b>`` for 2-axis residues) map to
+    {chi_quad: {mean, std, lb, up, source}}.  ``canonical`` equals the
+    SIDECHAIN_IC_DIHEDRAL template geometry (covers the 0-deg state);
+    named rotamers use Dunbrack bin centers.  Non-rotameric terminal chi
+    (members of SIDECHAIN_NON_ROTAMERIC_BINS) appear only in ``canonical``.
+
+    Named rotamers only cover the first 2 chi (chi1 / chi1 x chi2); chi3+
+    stay canonical.  PRO is ring-constrained (its chi cannot rotate into
+    g-/g+/t rotamers), so it has no named rotamers.
+    """
+    labels = ["g-", "g+", "t"]
+    centers = {"g-": -60.0, "g+": 60.0, "t": 180.0}
+    #: 环约束残基: chi 在环内, 不构成可旋转 rotamer (只有 canonical)。
+    RING_CONSTRAINED = {"PRO"}
+    lib = {}
+    for res in AAS:
+        chis = SIDECHAIN_CHI[res]
+        ic = SIDECHAIN_IC_DIHEDRAL[res]
+        def rec(mean, source):
+            return {"mean": float(mean), "std": np.nan, "lb": np.nan,
+                    "up": np.nan, "source": source}
+        # canonical: all chi present in IC_DIHEDRAL -> template mean
+        canon = {q: rec(ic[q]["mean"], "rosetta_params_408")
+                 for q in chis if q in ic}
+        lib[f"{res}_canonical"] = canon
+        # rotameric chi count for naming; named rotamers cover only the
+        # first 2 chi (chi1 x chi2); PRO ring chi are not rotamers.
+        if res in RING_CONSTRAINED:
+            continue
+        rc = len(chis) - (1 if res in SIDECHAIN_NON_ROTAMERIC_BINS else 0)
+        rc = min(2, rc)
+        if rc == 0:
+            continue  # no chi to rotate (ALA/GLY)
+        if rc == 1:
+            lib[f"{res}_g-"] = {chis[0]: rec(centers["g-"], "dunbrack_2010")}
+            lib[f"{res}_g+"] = {chis[0]: rec(centers["g+"], "dunbrack_2010")}
+            lib[f"{res}_t"]  = {chis[0]: rec(centers["t"],  "dunbrack_2010")}
+        else:  # rc == 2
+            for a in labels:
+                for b in labels:
+                    lib[f"{res}_{a}_{b}"] = {
+                        chis[0]: rec(centers[a], "dunbrack_2010"),
+                        chis[1]: rec(centers[b], "dunbrack_2010"),
+                    }
+    return lib
+
+#: 每种残基的逐残基 rotamer 库: {chi_quad: {mean, std, lb, up, source}}。
+#: ``canonical`` 是头等 rotamer (quad->mean == SIDECHAIN_IC_DIHEDRAL 模板值,
+#: 覆盖 mean=0 状态)。命名 rotamer (g-/g+/t) 用 Dunbrack bin 中心, 只覆盖
+#: 前导可 rotameric chi (chi1 / chi1+chi2); 非 rotameric 末端 chi 只在
+#: ``canonical`` 中出现。完整骨架依赖数值表未内嵌。
+SIDECHAIN_ROTAMER_LIB = _build_rotamer_lib()
