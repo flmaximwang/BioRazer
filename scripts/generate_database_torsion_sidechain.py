@@ -1,8 +1,8 @@
 # -*- coding: utf-8 -*-
 """Emit the sidechain-torsion dicts (SIDECHAIN_CHI / SIDECHAIN_IC_DIHEDRAL
 / ROTAMER_BIN / DUNBRACK_ROTAMERS) for
-biorazer/database/molecule/bond/dihedral/protein.py from Rosetta fa_standard
-params.
+biorazer/database/molecule/bond/dihedral/protein/by_residue.py from Rosetta
+fa_standard params.
 
 Run (from the repo root)::
 
