@@ -27,8 +27,8 @@
 在 ``k``); 对应键长见
 :data:`~biorazer.database.molecule.bond.length.protein.AMINO_ACID_SIDECHAIN_BOND`
 (key 为 2 原子元组), 二面角见
-:data:`~biorazer.database.molecule.bond.dihedral.protein.SIDECHAIN_IC_DIHEDRAL`
-(key 为生长四元组)。
+:data:`~biorazer.database.molecule.bond.dihedral.protein.SIDECHAIN_ROTAMER_LIB`
+(其 ``<RES>_canonical`` 条目按生长四元组给出完整侧链二面角)。
 
 通用骨架角的引用 (避免逐残基重复硬编码): 每个残基的骨架部分通过
 ``AMINO_ACID_BACKBONE_BOND_ANGLE[(j, k, l)]`` 取 :mod:`..angle.generic`

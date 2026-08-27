@@ -35,7 +35,6 @@ from .by_ss import (  # noqa: F401
 from .by_residue import (  # noqa: F401
     AAS,
     SIDECHAIN_CHI,
-    SIDECHAIN_IC_DIHEDRAL,
     ROTAMER_BIN,
     NON_ROTAMERIC_BIN_WIDTH,
     SIDECHAIN_ROTAMER_LIB,
@@ -49,7 +48,7 @@ __all__ = [
     "BB_TORSION_REFS", "OMEGA_TRANS", "OMEGA_CIS",
     "ALIAS_QUAD", "QUAD_ALIAS",
     # side-chain (by residue)
-    "AAS", "SIDECHAIN_CHI", "SIDECHAIN_IC_DIHEDRAL", "ROTAMER_BIN",
+    "AAS", "SIDECHAIN_CHI", "ROTAMER_BIN",
     "NON_ROTAMERIC_BIN_WIDTH",
     "SIDECHAIN_ROTAMER_LIB", "SIDECHAIN_NON_ROTAMERIC_BINS",
     "SIDECHAIN_DIHE_REFS",

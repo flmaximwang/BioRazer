@@ -9,14 +9,24 @@
 * ``SIDECHAIN_CHI`` -- 每种残基的官方 chi 扭转角定义 (chi1..chiN 的
   原子名四元组), 取自 Rosetta 408 fa_standard .params 的 CHI 行, 只保留
   重原子四元组。这些就是 Dunbrack 库所用的 chi 定义。
-* ``SIDECHAIN_IC_DIHEDRAL`` -- 每种残基侧链在 :data:`IC_PATH` 生长四元组
-  参考系下的**规范理想二面角** (度)。由 Rosetta 408 .params
-  (ICOOR_INTERNAL) 构建的规范残基几何实测 —— 与
-  :mod:`biorazer.database.molecule.bond.length.protein` 的键长/键角取自
-  同一次规范构建, 因此配套使用即可把侧链拼出一个自洽 (可 to_coords
-  重建) 的规范侧链。注意 IC-frame 二面角随参考骨架/chi 构象轻微耦合,
-  故它是**一个规范构象**的快照, 不是对任何骨架都成立的万能不变常量。
-* ``ROTAMER_BIN`` / ``SIDECHAIN_ROTAMER_LIB`` / ``SIDECHAIN_NON_ROTAMERIC_BINS``
+* ``SIDECHAIN_ROTAMER_LIB`` -- per-residue rotamer 库, 是**单一数据源**:
+  每个 ``<RES>_<rotamer>`` 条目都携带该 rotamer 的**完整**侧链二面角
+  映射 (keyed by 全部 :data:`IC_PATH` 生长四元组, 不只是 chi 四元组)。
+  基座是 :data:`SC_NON_CHI_DIHEDRAL` (私有) 中所有非 rotameric 二面角;
+  可 rotameric chi 在基座上由构建函数生成 (canonical=0 / bin 中心),
+  命名 rotamer / 非 rotameric bin 只覆盖相应 chi 四元组。因此查一次
+  ``SIDECHAIN_ROTAMER_LIB[f"{res}_{rotamer}"]`` 即可拿到该 rotamer
+  完整的 sidechain 二面角信息。
+* ``SC_NON_CHI_DIHEDRAL`` -- **私有** 的非 rotameric 侧链二面角表 (度),
+  keyed by 生长四元组原子名 (i,j,k,l)。只保留 build 不能从 rotamer 规则
+  再生成的二面角: 所有非 chi 生长四元组 + PRO 的环约束 chi (ring-pucker,
+  30/-33.9, 无 rotamer) + 非 rotameric 末端 chi (sp2 末端, 见
+  :data:`SIDECHAIN_NON_ROTAMERIC_BINS`)。可 rotameric chi 已被剔除, 由
+  :data:`SIDECHAIN_ROTAMER_LIB` 的构建函数生成 (canonical=0 / bin 中心)。
+  GLY 侧链为空。它只作为该库的 canonical 基座被内部消费; 公开入口是
+  ``<RES>_canonical``。键长/键角见 bond.length/angle.protein 的侧链表
+  (key 分别为 2/3 原子元组)。
+* ``ROTAMER_BIN`` / ``NON_ROTAMERIC_BIN_WIDTH`` / ``SIDECHAIN_NON_ROTAMERIC_BINS``
   -- 侧链 rotamer 的**分类框架**: 标准 rotamer bin 中心 (g-/t/g+ =
   -60/180/+60) 和逐残基 rotamer 库 (canonical + 命名 g-/g+/t)。完整的
   **骨架依赖数值表** (逐 phi/psi bin 的均值/方差) 属于外部 Dunbrack 2010
@@ -27,15 +37,17 @@
   g-/t/g+ 的离散 rotamer, 而是宽而对称性差的连续分布; 论文用 kernel 密度
   估计建模, 并额外提供 30 deg 离散 bin (每 bin 的均值/方差/占比) 以兼容
   SCWRL 等旧应用。bin 数见 ``SIDECHAIN_NON_ROTAMERIC_BINS`` 的 ``bins``。
-* ``SIDECHAIN_ROTAMER_LIB`` -- per-residue rotamer 库。单层键
-  ``<RES>_canonical``、``<RES>_g-``、``<RES>_g+``、``<RES>_t`` (2 轴残基为
-  ``<RES>_<a>_<b>``) 映射到 {chi_quad: {mean,std,lb,up,source}}。
-  ``canonical`` 等于 SIDECHAIN_IC_DIHEDRAL 模板几何 (覆盖 0-deg 状态)。
-  命名 rotamer 用 Dunbrack bin 中心。非 rotameric 末端 chi 除 ``canonical``
-  外, 另有 ``<RES>_nr<i>`` 条目: 用 ``NON_ROTAMERIC_BIN_WIDTH`` (30 deg)
-  将完整周期 (180 或 360 deg) 均匀离散的 ``bins`` 个 bin, 中心在 bin 中点
-  (15/45/75/...)。这些是均匀骨架 (source ``dunbrack_2010_uniform_30deg_bin``),
-  非 Dunbrack 数据拟合均值。完整骨架依赖数值表未内嵌。
+* ``SIDECHAIN_ROTAMER_LIB`` -- per-residue rotamer 库 (完整侧链二面角)。
+  单层键 ``<RES>_canonical``、``<RES>_g-``、``<RES>_g+``、``<RES>_t``
+  (2 轴残基为 ``<RES>_<a>_<b>``) 映射到 ``{quad: {mean,std,lb,up,source}}``。
+  ``canonical`` 等于 :data:`SC_NON_CHI_DIHEDRAL` (非 rotameric 值) 加上
+  生成的可 rotameric chi 0-deg (覆盖 canonical 状态)。命名 rotamer 用
+  Dunbrack bin 中心。非 rotameric 末端 chi 除
+  ``canonical`` 外, 另有 ``<RES>_nr<i>`` 条目: 用 ``NON_ROTAMERIC_BIN_WIDTH``
+  (30 deg) 将完整周期 (180 或 360 deg) 均匀离散的 ``bins`` 个 bin, 中心在
+  bin 中点 (15/45/75/...)。这些是均匀骨架 (source
+  ``dunbrack_2010_uniform_30deg_bin``), 非 Dunbrack 数据拟合均值。完整骨架
+  依赖数值表未内嵌。
 * ``SIDECHAIN_NON_ROTAMERIC_BINS`` -- per-residue 非 rotameric 末端 chi
   (sp3-sp2/芳香) 细 bin 规范: chi 四元组 + 30 deg bin 数 (ASN/GLN/HIS/TRP
   = 12, ASP/GLU/PHE/TYR = 6)。这些 bin 的**中心位置**由
@@ -49,6 +61,8 @@ source}``; 查不到 spread 的字段为 ``np.nan`` (Rosetta ICOOR 只给理想�
 """
 
 import numpy as np
+
+from biorazer.database.molecule.icoor.protein.topology import IC_PATH
 
 AAS = ['ALA', 'ARG', 'ASN', 'ASP', 'CYS', 'GLN', 'GLU', 'GLY', 'HIS', 'ILE', 'LEU', 'LYS', 'MET', 'PHE', 'PRO', 'SER', 'THR', 'TRP', 'TYR', 'VAL']
 
@@ -76,19 +90,22 @@ SIDECHAIN_CHI = {
     'VAL': [('N', 'CA', 'CB', 'CG1')],
 }
 
-#: 每种残基侧链的规范 IC-frame 理想二面角 (度), keyed by 生长四元组原子名
-#: (i,j,k,l), 即官方二面角定义 (如 chi1=(N,CA,CB,CG))。GLY 侧链为空。
+#: **私有** 的非 rotameric 侧链二面角表 (度), keyed by 生长四元组原子名
+#: (i,j,k,l)。只保留 build 不能从 rotamer 规则再生成的二面角: 所有非 chi
+#: 生长四元组 + PRO 的环约束 chi (ring-pucker, 30/-33.9, 无 rotamer) + 非
+#: rotameric 末端 chi (sp2 末端, 见 SIDECHAIN_NON_ROTAMERIC_BINS)。可 rotameric
+#: chi 已被剔除, 由 SIDECHAIN_ROTAMER_LIB 的构建函数生成 (canonical=0 / bin 中心)。
 #: 每条为 {mean, std, lb, up, source}; Rosetta ICOOR 只给理想点值,
-#: 故 std/lb/up = np.nan。键长/键角见 bond.length/angle.protein 的侧链表
+#: 故 std/lb/up = np.nan。作为 SIDECHAIN_ROTAMER_LIB 的基座被内部消费
+#: (公开入口是 <RES>_canonical)。键长/键角见 bond.length/angle.protein 的侧链表
 #: (key 分别为 2/3 原子元组)。
-SIDECHAIN_IC_DIHEDRAL = {
+SC_NON_CHI_DIHEDRAL = {
+
     'ALA': {
         ('C', 'N', 'CA', 'CB'): {"mean": -122.80, "std": np.nan, "lb": np.nan, "up": np.nan, "source": "rosetta_params_408"},
     },
     'ARG': {
         ('C', 'N', 'CA', 'CB'): {"mean": -121.70, "std": np.nan, "lb": np.nan, "up": np.nan, "source": "rosetta_params_408"},
-        ('N', 'CA', 'CB', 'CG'): {"mean": 0.00, "std": np.nan, "lb": np.nan, "up": np.nan, "source": "rosetta_params_408"},
-        ('CA', 'CB', 'CG', 'CD'): {"mean": -0.00, "std": np.nan, "lb": np.nan, "up": np.nan, "source": "rosetta_params_408"},
         ('CB', 'CG', 'CD', 'NE'): {"mean": -0.00, "std": np.nan, "lb": np.nan, "up": np.nan, "source": "rosetta_params_408"},
         ('CG', 'CD', 'NE', 'CZ'): {"mean": 0.00, "std": np.nan, "lb": np.nan, "up": np.nan, "source": "rosetta_params_408"},
         ('CD', 'NE', 'CZ', 'NH1'): {"mean": 0.00, "std": np.nan, "lb": np.nan, "up": np.nan, "source": "rosetta_params_408"},
@@ -96,31 +113,24 @@ SIDECHAIN_IC_DIHEDRAL = {
     },
     'ASN': {
         ('C', 'N', 'CA', 'CB'): {"mean": -123.30, "std": np.nan, "lb": np.nan, "up": np.nan, "source": "rosetta_params_408"},
-        ('N', 'CA', 'CB', 'CG'): {"mean": -0.00, "std": np.nan, "lb": np.nan, "up": np.nan, "source": "rosetta_params_408"},
         ('CA', 'CB', 'CG', 'OD1'): {"mean": 0.00, "std": np.nan, "lb": np.nan, "up": np.nan, "source": "rosetta_params_408"},
         ('OD1', 'CB', 'CG', 'ND2'): {"mean": -180.00, "std": np.nan, "lb": np.nan, "up": np.nan, "source": "rosetta_params_408"},
     },
     'ASP': {
         ('C', 'N', 'CA', 'CB'): {"mean": -122.10, "std": np.nan, "lb": np.nan, "up": np.nan, "source": "rosetta_params_408"},
-        ('N', 'CA', 'CB', 'CG'): {"mean": 0.00, "std": np.nan, "lb": np.nan, "up": np.nan, "source": "rosetta_params_408"},
         ('CA', 'CB', 'CG', 'OD1'): {"mean": -0.00, "std": np.nan, "lb": np.nan, "up": np.nan, "source": "rosetta_params_408"},
         ('OD1', 'CB', 'CG', 'OD2'): {"mean": 180.00, "std": np.nan, "lb": np.nan, "up": np.nan, "source": "rosetta_params_408"},
     },
     'CYS': {
         ('C', 'N', 'CA', 'CB'): {"mean": -121.60, "std": np.nan, "lb": np.nan, "up": np.nan, "source": "rosetta_params_408"},
-        ('N', 'CA', 'CB', 'SG'): {"mean": -0.00, "std": np.nan, "lb": np.nan, "up": np.nan, "source": "rosetta_params_408"},
     },
     'GLN': {
         ('C', 'N', 'CA', 'CB'): {"mean": -122.40, "std": np.nan, "lb": np.nan, "up": np.nan, "source": "rosetta_params_408"},
-        ('N', 'CA', 'CB', 'CG'): {"mean": -0.00, "std": np.nan, "lb": np.nan, "up": np.nan, "source": "rosetta_params_408"},
-        ('CA', 'CB', 'CG', 'CD'): {"mean": -0.00, "std": np.nan, "lb": np.nan, "up": np.nan, "source": "rosetta_params_408"},
         ('CB', 'CG', 'CD', 'OE1'): {"mean": -0.00, "std": np.nan, "lb": np.nan, "up": np.nan, "source": "rosetta_params_408"},
         ('OE1', 'CG', 'CD', 'NE2'): {"mean": -180.00, "std": np.nan, "lb": np.nan, "up": np.nan, "source": "rosetta_params_408"},
     },
     'GLU': {
         ('C', 'N', 'CA', 'CB'): {"mean": -122.20, "std": np.nan, "lb": np.nan, "up": np.nan, "source": "rosetta_params_408"},
-        ('N', 'CA', 'CB', 'CG'): {"mean": -0.00, "std": np.nan, "lb": np.nan, "up": np.nan, "source": "rosetta_params_408"},
-        ('CA', 'CB', 'CG', 'CD'): {"mean": -0.00, "std": np.nan, "lb": np.nan, "up": np.nan, "source": "rosetta_params_408"},
         ('CB', 'CG', 'CD', 'OE1'): {"mean": -0.00, "std": np.nan, "lb": np.nan, "up": np.nan, "source": "rosetta_params_408"},
         ('OE1', 'CG', 'CD', 'OE2'): {"mean": -180.00, "std": np.nan, "lb": np.nan, "up": np.nan, "source": "rosetta_params_408"},
     },
@@ -128,7 +138,6 @@ SIDECHAIN_IC_DIHEDRAL = {
     },
     'HIS': {
         ('C', 'N', 'CA', 'CB'): {"mean": -122.20, "std": np.nan, "lb": np.nan, "up": np.nan, "source": "rosetta_params_408"},
-        ('N', 'CA', 'CB', 'CG'): {"mean": -0.00, "std": np.nan, "lb": np.nan, "up": np.nan, "source": "rosetta_params_408"},
         ('CA', 'CB', 'CG', 'ND1'): {"mean": 0.00, "std": np.nan, "lb": np.nan, "up": np.nan, "source": "rosetta_params_408"},
         ('CB', 'CG', 'ND1', 'CE1'): {"mean": 180.00, "std": np.nan, "lb": np.nan, "up": np.nan, "source": "rosetta_params_408"},
         ('CG', 'ND1', 'CE1', 'NE2'): {"mean": 0.04, "std": np.nan, "lb": np.nan, "up": np.nan, "source": "rosetta_params_408"},
@@ -136,32 +145,23 @@ SIDECHAIN_IC_DIHEDRAL = {
     },
     'ILE': {
         ('C', 'N', 'CA', 'CB'): {"mean": -122.10, "std": np.nan, "lb": np.nan, "up": np.nan, "source": "rosetta_params_408"},
-        ('N', 'CA', 'CB', 'CG1'): {"mean": 0.00, "std": np.nan, "lb": np.nan, "up": np.nan, "source": "rosetta_params_408"},
-        ('CA', 'CB', 'CG1', 'CD1'): {"mean": 0.00, "std": np.nan, "lb": np.nan, "up": np.nan, "source": "rosetta_params_408"},
         ('CG1', 'CA', 'CB', 'CG2'): {"mean": -122.68, "std": np.nan, "lb": np.nan, "up": np.nan, "source": "rosetta_params_408"},
     },
     'LEU': {
         ('C', 'N', 'CA', 'CB'): {"mean": -121.90, "std": np.nan, "lb": np.nan, "up": np.nan, "source": "rosetta_params_408"},
-        ('N', 'CA', 'CB', 'CG'): {"mean": 0.00, "std": np.nan, "lb": np.nan, "up": np.nan, "source": "rosetta_params_408"},
-        ('CA', 'CB', 'CG', 'CD1'): {"mean": 0.00, "std": np.nan, "lb": np.nan, "up": np.nan, "source": "rosetta_params_408"},
         ('CD1', 'CB', 'CG', 'CD2'): {"mean": 122.00, "std": np.nan, "lb": np.nan, "up": np.nan, "source": "rosetta_params_408"},
     },
     'LYS': {
         ('C', 'N', 'CA', 'CB'): {"mean": -122.60, "std": np.nan, "lb": np.nan, "up": np.nan, "source": "rosetta_params_408"},
-        ('N', 'CA', 'CB', 'CG'): {"mean": -0.00, "std": np.nan, "lb": np.nan, "up": np.nan, "source": "rosetta_params_408"},
-        ('CA', 'CB', 'CG', 'CD'): {"mean": 0.00, "std": np.nan, "lb": np.nan, "up": np.nan, "source": "rosetta_params_408"},
         ('CB', 'CG', 'CD', 'CE'): {"mean": 0.00, "std": np.nan, "lb": np.nan, "up": np.nan, "source": "rosetta_params_408"},
         ('CG', 'CD', 'CE', 'NZ'): {"mean": -0.00, "std": np.nan, "lb": np.nan, "up": np.nan, "source": "rosetta_params_408"},
     },
     'MET': {
         ('C', 'N', 'CA', 'CB'): {"mean": -122.80, "std": np.nan, "lb": np.nan, "up": np.nan, "source": "rosetta_params_408"},
-        ('N', 'CA', 'CB', 'CG'): {"mean": 0.00, "std": np.nan, "lb": np.nan, "up": np.nan, "source": "rosetta_params_408"},
-        ('CA', 'CB', 'CG', 'SD'): {"mean": 0.00, "std": np.nan, "lb": np.nan, "up": np.nan, "source": "rosetta_params_408"},
         ('CB', 'CG', 'SD', 'CE'): {"mean": -0.00, "std": np.nan, "lb": np.nan, "up": np.nan, "source": "rosetta_params_408"},
     },
     'PHE': {
         ('C', 'N', 'CA', 'CB'): {"mean": -122.00, "std": np.nan, "lb": np.nan, "up": np.nan, "source": "rosetta_params_408"},
-        ('N', 'CA', 'CB', 'CG'): {"mean": -0.00, "std": np.nan, "lb": np.nan, "up": np.nan, "source": "rosetta_params_408"},
         ('CA', 'CB', 'CG', 'CD1'): {"mean": 0.00, "std": np.nan, "lb": np.nan, "up": np.nan, "source": "rosetta_params_408"},
         ('CB', 'CG', 'CD1', 'CE1'): {"mean": -179.99, "std": np.nan, "lb": np.nan, "up": np.nan, "source": "rosetta_params_408"},
         ('CG', 'CD1', 'CE1', 'CZ'): {"mean": -0.03, "std": np.nan, "lb": np.nan, "up": np.nan, "source": "rosetta_params_408"},
@@ -175,16 +175,13 @@ SIDECHAIN_IC_DIHEDRAL = {
     },
     'SER': {
         ('C', 'N', 'CA', 'CB'): {"mean": -122.00, "std": np.nan, "lb": np.nan, "up": np.nan, "source": "rosetta_params_408"},
-        ('N', 'CA', 'CB', 'OG'): {"mean": -0.00, "std": np.nan, "lb": np.nan, "up": np.nan, "source": "rosetta_params_408"},
     },
     'THR': {
         ('C', 'N', 'CA', 'CB'): {"mean": -122.40, "std": np.nan, "lb": np.nan, "up": np.nan, "source": "rosetta_params_408"},
-        ('N', 'CA', 'CB', 'OG1'): {"mean": -0.00, "std": np.nan, "lb": np.nan, "up": np.nan, "source": "rosetta_params_408"},
         ('OG1', 'CA', 'CB', 'CG2'): {"mean": -120.54, "std": np.nan, "lb": np.nan, "up": np.nan, "source": "rosetta_params_408"},
     },
     'TRP': {
         ('C', 'N', 'CA', 'CB'): {"mean": -121.90, "std": np.nan, "lb": np.nan, "up": np.nan, "source": "rosetta_params_408"},
-        ('N', 'CA', 'CB', 'CG'): {"mean": 0.00, "std": np.nan, "lb": np.nan, "up": np.nan, "source": "rosetta_params_408"},
         ('CA', 'CB', 'CG', 'CD1'): {"mean": 0.00, "std": np.nan, "lb": np.nan, "up": np.nan, "source": "rosetta_params_408"},
         ('CB', 'CG', 'CD1', 'NE1'): {"mean": -179.97, "std": np.nan, "lb": np.nan, "up": np.nan, "source": "rosetta_params_408"},
         ('CG', 'CD1', 'NE1', 'CE2'): {"mean": -0.11, "std": np.nan, "lb": np.nan, "up": np.nan, "source": "rosetta_params_408"},
@@ -196,7 +193,6 @@ SIDECHAIN_IC_DIHEDRAL = {
     },
     'TYR': {
         ('C', 'N', 'CA', 'CB'): {"mean": -122.80, "std": np.nan, "lb": np.nan, "up": np.nan, "source": "rosetta_params_408"},
-        ('N', 'CA', 'CB', 'CG'): {"mean": -0.00, "std": np.nan, "lb": np.nan, "up": np.nan, "source": "rosetta_params_408"},
         ('CA', 'CB', 'CG', 'CD1'): {"mean": 0.00, "std": np.nan, "lb": np.nan, "up": np.nan, "source": "rosetta_params_408"},
         ('CB', 'CG', 'CD1', 'CE1'): {"mean": -180.00, "std": np.nan, "lb": np.nan, "up": np.nan, "source": "rosetta_params_408"},
         ('CD1', 'CB', 'CG', 'CD2'): {"mean": 180.00, "std": np.nan, "lb": np.nan, "up": np.nan, "source": "rosetta_params_408"},
@@ -206,7 +202,6 @@ SIDECHAIN_IC_DIHEDRAL = {
     },
     'VAL': {
         ('C', 'N', 'CA', 'CB'): {"mean": -121.50, "std": np.nan, "lb": np.nan, "up": np.nan, "source": "rosetta_params_408"},
-        ('N', 'CA', 'CB', 'CG1'): {"mean": -0.00, "std": np.nan, "lb": np.nan, "up": np.nan, "source": "rosetta_params_408"},
         ('CG1', 'CA', 'CB', 'CG2'): {"mean": 122.54, "std": np.nan, "lb": np.nan, "up": np.nan, "source": "rosetta_params_408"},
     },
 }
@@ -249,11 +244,23 @@ SIDECHAIN_NON_ROTAMERIC_BINS = {
 def _build_rotamer_lib():
     """Build the per-residue rotamer library programmatically.
 
-    Single-level keys ``<RES>_canonical``, ``<RES>_g-``, ``<RES>_g+``,
-    ``<RES>_t`` (and ``<RES>_<a>_<b>`` for 2-axis residues) map to
-    {chi_quad: {mean, std, lb, up, source}}.  ``canonical`` equals the
-    SIDECHAIN_IC_DIHEDRAL template geometry (covers the 0-deg state);
-    named rotamers use Dunbrack bin centers.
+    Each entry is the **complete** side-chain dihedral map over all
+    :data:`IC_PATH` grow quads for that residue (not just chi quads), so a
+    single lookup ``SIDECHAIN_ROTAMER_LIB[f"{res}_{rotamer}"]`` yields every
+    side-chain dihedral of that rotamer.  Single-level keys ``<RES>_canonical``,
+    ``<RES>_g-``, ``<RES>_g+``, ``<RES>_t`` (and ``<RES>_<a>_<b>`` for 2-axis
+    residues) map to ``{quad: {mean, std, lb, up, source}}``.
+
+    The base of every entry is the non-rotameric table
+    (:data:`SC_NON_CHI_DIHEDRAL`) for all quads it carries (non-chi grow
+    quads + PRO ring-pucker chi + terminal non-rotameric chi); the
+    rotameric chi quads are **regenerated here** (they are stripped from
+    the table, which stores only what a rotamer rule cannot derive): the
+    canonical representative uses the IC ideal 0-deg state (mean 0), and
+    named rotamers override the leading chi to their Dunbrack bin centers.
+    So ``canonical`` equals the canonical template geometry and named
+    rotamers override only the rotameric chi, leaving chi3+ and any
+    non-rotameric terminal chi at their canonical values.
 
     Non-rotameric terminal chi (members of SIDECHAIN_NON_ROTAMERIC_BINS,
     e.g. the sp2 terminal chi of ASN/ASP/GLN/GLU/PHE/HIS/TRP/TYR) appear
@@ -280,14 +287,28 @@ def _build_rotamer_lib():
     lib = {}
     for res in AAS:
         chis = SIDECHAIN_CHI[res]
-        ic = SIDECHAIN_IC_DIHEDRAL[res]
+        nonchi = SC_NON_CHI_DIHEDRAL[res]
+
         def rec(mean, source):
             return {"mean": float(mean), "std": np.nan, "lb": np.nan,
                     "up": np.nan, "source": source}
-        # canonical: all chi present in IC_DIHEDRAL -> template mean
-        canon = {q: rec(ic[q]["mean"], "rosetta_params_408")
-                 for q in chis if q in ic}
-        lib[f"{res}_canonical"] = canon
+
+        # canonical full-geometry base: EVERY IC_PATH quad.  Quads carried
+        # by SC_NON_CHI_DIHEDRAL take their stored value (source
+        # rosetta_params_408); stripped rotameric chi quads are regenerated
+        # at the canonical 0-deg ideal (also source rosetta_params_408).
+        def canon_base():
+            base = {}
+            for q in IC_PATH[res]:
+                if q in nonchi:
+                    base[q] = {"mean": float(nonchi[q]["mean"]), "std": np.nan,
+                               "lb": np.nan, "up": np.nan,
+                               "source": "rosetta_params_408"}
+                else:
+                    base[q] = rec(0.0, "rosetta_params_408")
+            return base
+
+        lib[f"{res}_canonical"] = canon_base()
         # rotameric chi count for naming; named rotamers cover only the
         # first 2 chi (chi1 x chi2); PRO ring chi are not rotamers.
         if res in RING_CONSTRAINED:
@@ -297,16 +318,17 @@ def _build_rotamer_lib():
         if rc == 0:
             pass  # no rotameric chi to rotate (ALA/GLY)
         elif rc == 1:
-            lib[f"{res}_g-"] = {chis[0]: rec(centers["g-"], "dunbrack_2010")}
-            lib[f"{res}_g+"] = {chis[0]: rec(centers["g+"], "dunbrack_2010")}
-            lib[f"{res}_t"]  = {chis[0]: rec(centers["t"],  "dunbrack_2010")}
+            for name, center in centers.items():
+                lib[f"{res}_{name}"] = canon_base()
+                lib[f"{res}_{name}"][chis[0]] = rec(center, "dunbrack_2010")
         else:  # rc == 2
             for a in labels:
                 for b in labels:
-                    lib[f"{res}_{a}_{b}"] = {
+                    lib[f"{res}_{a}_{b}"] = canon_base()
+                    lib[f"{res}_{a}_{b}"].update({
                         chis[0]: rec(centers[a], "dunbrack_2010"),
                         chis[1]: rec(centers[b], "dunbrack_2010"),
-                    }
+                    })
         # non-rotameric terminal chi: bins uniform 30-deg bins over the
         # full period.  The terminal chi is the last entry of chis.
         if res in SIDECHAIN_NON_ROTAMERIC_BINS:
@@ -315,40 +337,50 @@ def _build_rotamer_lib():
             nq = spec["chi_quad"]
             for i in range(1, nbin + 1):
                 center = NON_ROTAMERIC_BIN_WIDTH * (i - 0.5)
-                lib[f"{res}_nr{i}"] = {nq: rec(center, NR_BIN_SOURCE)}
+                lib[f"{res}_nr{i}"] = canon_base()
+                lib[f"{res}_nr{i}"][nq] = rec(center, NR_BIN_SOURCE)
     return lib
 
-#: 每种残基的逐残基 rotamer 库: {chi_quad: {mean, std, lb, up, source}}。
-#: ``canonical`` 是头等 rotamer (quad->mean == SIDECHAIN_IC_DIHEDRAL 模板值,
-#: 覆盖 mean=0 状态)。命名 rotamer (g-/g+/t) 用 Dunbrack bin 中心, 只覆盖
-#: 前导可 rotameric chi (chi1 / chi1+chi2)。非 rotameric 末端 chi 除
-#: ``canonical`` 外, 还有 ``<RES>_nr<i>`` 条目 (i=1..bins): 用
-#: NON_ROTAMERIC_BIN_WIDTH 均匀离散完整周期的 bin, 中心在 bin 中点
-#: (15/45/75/...), 为均匀骨架 (非 Dunbrack 拟合均值)。完整骨架依赖数值表
-#: 未内嵌。
+#: 每种残基的逐残基 rotamer 库 (**完整侧链二面角**): {chi_quad: {mean, std,
+#: lb, up, source}}。每个 ``<RES>_<rotamer>`` 条目携带该残基**全部**
+#: :data:`IC_PATH` 生长四元组的二面角 (不只是 chi 四元组), 故单次查询即可
+#: 拿到某 rotamer 完整的 sidechain 二面角信息。``canonical`` 是头等 rotamer
+#: (非 rotameric 二面角取 :data:`SC_NON_CHI_DIHEDRAL`, 可 rotameric chi 取
+#: 0-deg canonical 理想, 覆盖 mean=0 状态)。命名
+#: rotamer (g-/g+/t) 用 Dunbrack bin 中心, 只覆盖前导可 rotameric chi
+#: (chi1 / chi1+chi2), 其余 (chi3+、非 rotameric 末端 chi) 保持 canonical
+#: 值。非 rotameric 末端 chi 除 ``canonical`` 外, 还有 ``<RES>_nr<i>`` 条目
+#: (i=1..bins): 用 NON_ROTAMERIC_BIN_WIDTH 均匀离散完整周期的 bin, 中心在
+#: bin 中点 (15/45/75/...), 为均匀骨架 (非 Dunbrack 拟合均值)。完整骨架依赖
+#: 数值表未内嵌。
 #:
 #: 键形: 单 chi 残基 -> ``<RES>_{canonical,g-,g+,t}``; 双 chi 残基 ->
 #: ``<RES>_{g-,g+,t}_{g-,g+,t}`` (仅 chi1 x chi2); 非 rotameric 末端 chi ->
-#: ``<RES>_nr1..<RES>_nr{bins}``。值 dict 的键是 chi 扭转角四元组 (原子名),
-#: 值各字段含义:
+#: ``<RES>_nr1..<RES>_nr{bins}``。值 dict 的键是**全部** chi 扭转角四元组
+#: (原子名) 加上其余生长四元组, 值各字段含义:
 #:   ``mean``   -- bin 中心二面角 (度)
 #:   ``std``    -- 标准差 (未内嵌时为 np.nan)
 #:   ``lb``/``up`` -- bin 下/上界 (未内嵌时为 np.nan)
 #:   ``source`` -- 数据来源 ("rosetta_params_408" / "dunbrack_2010" /
-#:                 "dunbrack_2010_uniform_30deg_bin")
+#:                 "dunbrack_2010_uniform_30deg_bin"; 一个条目内可按 quad
+#:                 source 混合)
 #:
 #: 示例 (真实内容):
 #:   >>> SIDECHAIN_ROTAMER_LIB['VAL_t']          # 单 chi, t (trans)
-#:   {('N', 'CA', 'CB', 'CG1'): {'mean': 180.0, 'std': nan,
-#:                               'lb': nan, 'up': nan,
-#:                               'source': 'dunbrack_2010'}}
+#:   {('C', 'N', 'CA', 'CB'): {'mean': -121.5, 'source': 'rosetta_params_408', ...},
+#:    ('N', 'CA', 'CB', 'CG1'): {'mean': 180.0, 'source': 'dunbrack_2010', ...},
+#:    ('CG1', 'CA', 'CB', 'CG2'): {'mean': 122.54, 'source': 'rosetta_params_408', ...}}
 #:   >>> SIDECHAIN_ROTAMER_LIB['LEU_t_g-']       # 双 chi: chi1=t, chi2=g-
-#:   {('N', 'CA', 'CB', 'CG'): {'mean': 180.0, ...},
-#:    ('CA', 'CB', 'CG', 'CD1'): {'mean': -60.0, ...}}
+#:   {('C', 'N', 'CA', 'CB'): {'mean': -121.9, 'source': 'rosetta_params_408', ...},
+#:    ('N', 'CA', 'CB', 'CG'): {'mean': 180.0, 'source': 'dunbrack_2010', ...},
+#:    ('CA', 'CB', 'CG', 'CD1'): {'mean': -60.0, 'source': 'dunbrack_2010', ...},
+#:    ('CD1', 'CB', 'CG', 'CD2'): {'mean': 122.0, 'source': 'rosetta_params_408', ...}}
 #:   >>> SIDECHAIN_ROTAMER_LIB['SER_canonical']  # canonical == IC 模板几何
-#:   {('N', 'CA', 'CB', 'OG'): {'mean': -0.0, 'source': 'rosetta_params_408', ...}}
+#:   {('C', 'N', 'CA', 'CB'): {'mean': -122.0, 'source': 'rosetta_params_408', ...},
+#:    ('N', 'CA', 'CB', 'OG'): {'mean': -0.0, 'source': 'rosetta_params_408', ...}}
 #:   >>> SIDECHAIN_ROTAMER_LIB['ASP_nr1']        # 非 rotameric chi2 首 bin
-#:   {('CA', 'CB', 'CG', 'OD1'): {'mean': 15.0, 'std': nan,
-#:                                'lb': nan, 'up': nan,
-#:                                'source': 'dunbrack_2010_uniform_30deg_bin'}}
+#:   {('C', 'N', 'CA', 'CB'): {'mean': -122.1, 'source': 'rosetta_params_408', ...},
+#:    ('N', 'CA', 'CB', 'CG'): {'mean': 0.0, 'source': 'rosetta_params_408', ...},
+#:    ('CA', 'CB', 'CG', 'OD1'): {'mean': 15.0, 'source': 'dunbrack_2010_uniform_30deg_bin', ...},
+#:    ('OD1', 'CB', 'CG', 'OD2'): {'mean': 180.0, 'source': 'rosetta_params_408', ...}}
 SIDECHAIN_ROTAMER_LIB = _build_rotamer_lib()
