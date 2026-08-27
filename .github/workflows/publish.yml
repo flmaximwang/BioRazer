@@ -1,0 +1,103 @@
+name: publish
+
+# 发布流水线: 打 tag (vX.Y.Z) 即触发。
+# 流程: 测试 -> 构建 (sdist + manylinux wheels) -> Trusted Publishing 上传 PyPI。
+#
+# 前置条件 (一次性, 在 PyPI 配置):
+#   1. 在 https://pypi.org/manage/account/publishing/ 添加 Trusted Publisher:
+#      - Project: biorazer
+#      - Owner: flmaximwang
+#      - Repository: BioRazer
+#      - Workflow name: publish.yml
+#   2. 打 tag 前确保 pyproject.toml 的 version 与 tag 一致 (v0.9.0 -> 0.9.0)。
+#      流水线会校验, 不一致则中止发布。
+
+on:
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: read
+  # Trusted Publishing (OIDC) 需要 id-token 写权限
+  id-token: write
+
+jobs:
+  test:
+    name: test (py${{ matrix.python-version }})
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python-version: ["3.11", "3.12"]
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          # 核心依赖 (poetry 的 dev group 不是 pip extra, 这里显式装 pytest)
+          pip install -e .
+          pip install pytest
+          # Cython 扩展编译所需 (poetry 的 build-system 也声明了, 这里确保测试环境可编译)
+          pip install cython numpy
+
+      - name: Run tests
+        run: python -m pytest tests/ -q
+
+  build:
+    name: build sdist + wheels
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install build tools
+        run: python -m pip install --upgrade pip build cibuildwheel
+
+      - name: Build sdist
+        run: python -m build --sdist --outdir dist/
+
+      - name: Build manylinux wheels
+        run: python -m cibuildwheel --output-dir dist/
+        env:
+          CIBW_BUILD: "cp311-* cp312-*"
+          CIBW_ARCHS: "x86_64 aarch64"
+          CIBW_TEST_SKIP: "cp312-*"  # 测试在 build job 已覆盖, wheel 测试跳过 cp312 以省时间
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: dist
+          path: dist/
+
+  publish:
+    name: publish to PyPI
+    needs: [test, build]
+    runs-on: ubuntu-latest
+    if: startsWith(github.ref, 'refs/tags/v')
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: dist
+          path: dist/
+
+      - name: Check tag/version consistency
+        run: |
+          TAG_VERSION="${GITHUB_REF_NAME#v}"
+          PACKAGE_VERSION="$(python -c "import tomllib; print(tomllib.load(open('pyproject.toml','rb'))['tool']['poetry']['version'])")"
+          if [ "$TAG_VERSION" != "$PACKAGE_VERSION" ]; then
+            echo "ERROR: tag $GITHUB_REF_NAME != pyproject version $PACKAGE_VERSION" >&2
+            exit 1
+          fi
+          echo "tag/version consistent: $PACKAGE_VERSION"
+
+      - name: Publish to PyPI (trusted publishing)
+        uses: pypa/gh-action-pypi-publish@release/v1
+        with:
+          packages-dir: dist/
