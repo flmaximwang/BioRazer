@@ -80,7 +80,21 @@ _COMMON_CHI_AXES = {
 def rotamer_names(resn):
     """List of common rotamer names for a residue, each with a ``"canonical"``
     representative first (chi is a first-class axis where the residue has
-    rotatable chi)."""
+    rotatable chi).
+
+    Examples
+    --------
+    >>> rotamer_names("ALA")            # 0 chi axis -> single canonical
+    ['canonical']
+    >>> rotamer_names("GLY")
+    ['canonical']
+    >>> rotamer_names("PRO")            # ring-constrained, canonical only
+    ['canonical']
+    >>> rotamer_names("SER")            # 1 chi axis -> canonical + 3 g-/t/g+
+    ['canonical', 'g-', 't', 'g+']
+    >>> rotamer_names("LEU")            # 2 chi axes -> canonical + 9 chi1/chi2
+    ['canonical', 'g-/g-', 'g-/t', 'g-/g+', 't/g-', 't/t', 't/g+', 'g+/g-', 'g+/t', 'g+/g+']
+    """
     n = _COMMON_CHI_AXES.get(resn, 0)
     if n == 0:
         return ["canonical"]
@@ -92,7 +106,29 @@ def rotamer_names(resn):
 def rotamer_targets(resn, rotamer):
     """Map a rotamer name -> {rotator atom: chi target (deg)}.  For the
     ``2``-axis residues the chi3/chi4 rotators are kept at their canonical
-    (ideal) value (measured from the canonical build unless already set)."""
+    (ideal) value (measured from the canonical build unless already set).
+
+    The rotator atom ``l`` of each chi quad is the fourth atom of the official
+    chi definition (e.g. ``SER`` chi1 = ``(N, CA, CB, OG)`` -> rotator ``OG``;
+    ``LEU`` chi1 = ``(N, CA, CB, CG)``, chi2 = ``(CA, CB, CG, CD1)`` ->
+    rotators ``CG``, ``CD1``).  Values are the Dunbrack bin means from
+    :data:`ROTAMER_BIN` (g- = -60, t = 180, g+ = 60).
+
+    Examples
+    --------
+    >>> rotamer_targets("ALA", "canonical")     # no chi -> always {}
+    {}
+    >>> rotamer_targets("SER", "t")              # 1 axis, bin -> rotator mean
+    {'OG': 180.0}
+    >>> rotamer_targets("SER", "g-")
+    {'OG': -60.0}
+    >>> rotamer_targets("LEU", "g-/t")           # 2 axes, <chi1>/<chi2>
+    {'CG': -60.0, 'CD1': 180.0}
+    >>> rotamer_targets("LEU", "canonical")      # canonical -> no overrides
+    {}
+    >>> rotamer_targets("ARG", "t/g+")           # only chi1/chi2 overridden
+    {'CG': 180.0, 'CD': 60.0}
+    """
     chis = SIDECHAIN_CHI.get(resn, [])
     rotators = [q[3] for q in chis]
     if _COMMON_CHI_AXES.get(resn, 0) == 0:
@@ -113,7 +149,22 @@ def rotamer_targets(resn, rotamer):
 # --------------------------------------------------------------------------- #
 def ss_torsions(ss):
     """``{phi, psi, omega}`` mean values for a secondary-structure class, from
-    :data:`biorazer.database.molecule.bond.dihedral.protein.by_ss.SS_BB_TORSION_ANGLE`."""
+    :data:`biorazer.database.molecule.bond.dihedral.protein.by_ss.SS_BB_TORSION_ANGLE`.
+
+    Valid ``ss`` keys: ``alpha-helix``, ``3-10-helix``, ``pi-helix``,
+    ``polyproline-II``, ``beta-strand``, ``parallel-beta-strand``,
+    ``antiparallel-beta-strand``, ``beta-bridge``, ``turn``, ``bend``,
+    ``coil``, ``cis-peptide-bond`` (12 total).
+
+    Examples
+    --------
+    >>> ss_torsions("alpha-helix")
+    {'phi': -60, 'psi': -45, 'omega': 180}
+    >>> ss_torsions("beta-strand")
+    {'phi': -120, 'psi': 130, 'omega': 180}
+    >>> ss_torsions("coil")
+    {'phi': 0, 'psi': 0, 'omega': 180}
+    """
     v = SS_BB_TORSION_ANGLE[ss]
     return {"phi": v["phi"]["mean"], "psi": v["psi"]["mean"], "omega": v["omega"]["mean"]}
 
@@ -137,7 +188,40 @@ def build_template(resn, ss, rotamer="canonical"):
     ss : str
         Secondary-structure class key of ``SS_BB_TORSION_ANGLE``.
     rotamer : str
-        A name from :func:`rotamer_names` (default ``"canonical"``).
+        A name from :func:`rotamer_names` (default "canonical").
+
+    Examples
+    --------
+    Build the canonical ALA template at alpha-helix SS:
+
+    >>> ic = build_template("ALA", "alpha-helix", "canonical")
+    >>> [a.name for a in ic.atoms]          # order = anchor + backbone O + side chain
+    ['N', 'CA', 'C', 'O', 'CB']
+    >>> ic.phi, ic.psi, ic.omega            # carried on the instance (SS means)
+    (-60.0, -45.0, 180.0)
+    >>> ic.rotamer
+    'canonical'
+
+    The anchor frame {N, CA, C} is the only absolute geometry (N at origin,
+    CA along +x, C from the N-CA-C bond angle):
+
+    >>> ic.anchor[0]                        # N
+    (0.0, 0.0, 0.0)
+    >>> tuple(float(round(x, 4)) for x in ic.anchor[1])   # CA
+    (1.458, 0.0, 0.0)
+    >>> tuple(float(round(x, 4)) for x in ic.anchor[2])   # C
+    (2.0095, 1.4218, 0.0)
+
+    Bonds/angles/dihedra are keyed by atom index:
+
+    >>> ic.bond_distances[(0, 1)]           # N-CA
+    1.458
+    >>> ic.bond_distances[(1, 2)]           # CA-C
+    1.525
+    >>> ic.bond_angles[(0, 1, 2)]           # N-CA-C
+    111.2
+    >>> ic.dihedra[(0, 1, 2, 3)]            # N-CA-C-O carbonyl O quad
+    180.0
     """
     bl = AMINO_ACID_BOND_LENGTH
     ba = AMINO_ACID_BOND_ANGLE
@@ -203,12 +287,43 @@ def build_template_direct(resn, ss, rotamer="canonical"):
 
     Kept for backward compatibility: ``build_template`` is now the direct
     table-fill path (no Cartesian round-trip), so both names are equivalent.
+
+    Examples
+    --------
+    >>> ic = build_template_direct("SER", "coil", "t")
+    >>> [a.name for a in ic.atoms]
+    ['N', 'CA', 'C', 'O', 'CB', 'OG']
+    >>> ic.rotamer, ic.ss
+    ('t', 'coil')
     """
     return build_template(resn, ss, rotamer)
 
 
 def make_residue_templates(resn):
-    """``{ss: {rotamer: InternalCoord}}`` for all SS classes x common rotamers."""
+    """``{ss: {rotamer: InternalCoord}}`` for all SS classes x common rotamers.
+
+    Iterates every SS key of ``SS_BB_TORSION_ANGLE`` (12 classes) and every
+    rotamer from :func:`rotamer_names`.
+
+    Examples
+    --------
+    >>> t = make_residue_templates("LEU")
+    >>> len(t)                              # 12 SS classes
+    12
+    >>> list(t.keys())[:3]
+    ['alpha-helix', '3-10-helix', 'pi-helix']
+    >>> list(t["alpha-helix"].keys())       # canonical + 9 chi1/chi2 rotamers
+    ['canonical', 'g-/g-', 'g-/t', 'g-/g+', 't/g-', 't/t', 't/g+', 'g+/g-', 'g+/t', 'g+/g+']
+    >>> ic = t["coil"]["canonical"]
+    >>> ic.phi, ic.psi, ic.omega            # coil means
+    (0.0, 0.0, 180.0)
+    >>> [a.name for a in ic.atoms]          # LEU side chain CB, CG, CD1, CD2
+    ['N', 'CA', 'C', 'O', 'CB', 'CG', 'CD1', 'CD2']
+
+    >>> ta = make_residue_templates("ALA")
+    >>> list(ta["coil"].keys())             # 0 chi axis -> canonical only
+    ['canonical']
+    """
     out = {}
     for ss in SS_BB_TORSION_ANGLE:
         out[ss] = {r: build_template(resn, ss, r) for r in rotamer_names(resn)}
