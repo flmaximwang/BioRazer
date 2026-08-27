@@ -37,6 +37,7 @@ from biorazer.database.molecule.icoor.protein.topology import IC_PATH
 from biorazer.database.molecule.bond.length.generic import AMINO_ACID_BOND_LENGTH
 from biorazer.database.molecule.bond.angle.generic import AMINO_ACID_BOND_ANGLE
 from biorazer.database.molecule.bond.length.protein import AMINO_ACID_SIDECHAIN_BOND
+from biorazer.database.molecule.bond.angle.protein import AMINO_ACID_SIDECHAIN_BOND_ANGLE
 from biorazer.database.molecule.bond.dihedral.protein import (
     SS_BB_TORSION_ANGLE,
     SIDECHAIN_CHI,
@@ -117,9 +118,8 @@ def _build_coords(resn):
         i, j, k, l = quad
         if not all(n in coord for n in (i, j, k)):
             continue
-        entry = AMINO_ACID_SIDECHAIN_BOND[resn][quad]
-        blen = entry["mean"]
-        bang = entry["angle"]
+        blen = AMINO_ACID_SIDECHAIN_BOND[resn][(k, l)]["mean"]
+        bang = AMINO_ACID_SIDECHAIN_BOND_ANGLE[resn][(j, k, l)]["mean"]
         dih = SIDECHAIN_IC_DIHEDRAL[resn][quad]["mean"]
         coord[l] = _place(coord[i], coord[j], coord[k], blen, bang, dih)
     return coord
@@ -309,11 +309,11 @@ def build_template_direct(resn, ss, rotamer="canonical"):
 
     # side chain straight from the tables
     sc_bond = AMINO_ACID_SIDECHAIN_BOND[resn]
+    sc_angle = AMINO_ACID_SIDECHAIN_BOND_ANGLE[resn]
     for quad in IC_PATH[resn]:
-        entry = sc_bond[quad]
         i, j, k, l = (idx[nm] for nm in quad)
-        ic.bond_distances[(k, l)] = entry["mean"]
-        ic.bond_angles[(j, k, l)] = entry["angle"]
+        ic.bond_distances[(k, l)] = sc_bond[(k, l)]["mean"]
+        ic.bond_angles[(j, k, l)] = sc_angle[(j, k, l)]["mean"]
         ic.dihedra[(i, j, k, l)] = SIDECHAIN_IC_DIHEDRAL[resn][quad]
 
     t = ss_torsions(ss)

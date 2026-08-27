@@ -83,7 +83,7 @@ def main():
     a('')
     a('')
     a('#: 每种残基侧链的规范 IC-frame 理想二面角 (度), keyed by 生长四元组原子名')
-    a('#: (与 molecule.bond.length.protein.AMINO_ACID_SIDECHAIN_BOND 同 key)。')
+    a('#: (i,j,k,l), 即官方二面角定义 (如 chi1=(N,CA,CB,CG))。')
     a('#: GLY 侧链为空。每条为 {mean, std, lb, up, source}; std/lb/up 为 np.nan')
     a('#: (Rosetta ICOOR 只给理想点值)。')
     a('SIDECHAIN_IC_DIHEDRAL = {')

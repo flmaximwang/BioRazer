@@ -84,14 +84,16 @@ class TestUniformRecord:
         for res, d in M.AMINO_ACID_SIDECHAIN_BOND.items():
             for key, rec in d.items():
                 assert self.REQUIRED <= set(rec), (res, key)
+                assert isinstance(key, tuple) and len(key) == 2, (res, key)
                 assert np.isnan(rec["std"]) and np.isnan(rec["lb"]) and np.isnan(rec["up"])
                 n += 1
-        assert n == 87  # the grow-quad count of IC_PATH (excluding GLY)
+        assert n == 87  # the bond count of IC_PATH (excluding GLY)
 
     def test_sidechain_bond_angle(self):
         for res, d in M.AMINO_ACID_SIDECHAIN_BOND_ANGLE.items():
             for key, rec in d.items():
                 assert self.REQUIRED <= set(rec), (res, key)
+                assert isinstance(key, tuple) and len(key) == 3, (res, key)
                 assert np.isnan(rec["std"]) and np.isnan(rec["lb"]) and np.isnan(rec["up"])
 
     def test_ss_torsion_angle(self):
@@ -137,21 +139,27 @@ class TestMigratedValues:
         assert phi["mean"] == -60 and phi["up"] == -35 and phi["lb"] == -85
         assert M.SS_BB_TORSION_ANGLE["alpha-helix"]["psi"]["mean"] == -45
 
-    def test_sidechain_bond_consistency(self):
-        # the angle table must mirror the bond table's angle field
-        for res, d in M.AMINO_ACID_SIDECHAIN_BOND.items():
-            for quad, rec in d.items():
-                ang = M.AMINO_ACID_SIDECHAIN_BOND_ANGLE[res][quad]
-                assert abs(ang["mean"] - rec["angle"]) < 1e-9
-                assert ang["angle_pair"] == rec["angle_pair"]
-
-    def test_ic_path_matches_sidechain_tables(self):
-        # every IC_PATH grow quad appears in the sidechain bond tables
+    def test_sidechain_tables_keyed_by_arity(self):
+        # length keys are 2-atom tuples, angle keys are 3-atom tuples,
+        # dihedral keys stay 4-atom grow quads; each IC_PATH quad must resolve
+        # in all three tables.
         for res, quads in M.IC_PATH.items():
             for quad in quads:
-                assert quad in M.AMINO_ACID_SIDECHAIN_BOND[res], (res, quad)
-                assert quad in M.AMINO_ACID_SIDECHAIN_BOND_ANGLE[res], (res, quad)
+                _, j, k, l = quad
+                assert (k, l) in M.AMINO_ACID_SIDECHAIN_BOND[res], (res, quad)
+                assert (j, k, l) in M.AMINO_ACID_SIDECHAIN_BOND_ANGLE[res], (res, quad)
                 assert quad in M.SIDECHAIN_IC_DIHEDRAL[res], (res, quad)
+
+    def test_sidechain_length_angle_consistent(self):
+        # the same (res, grow quad) must map to the same bond/angle values
+        # through the 2- and 3-atom keys.
+        for res, quads in M.IC_PATH.items():
+            for quad in quads:
+                i, j, k, l = quad
+                bond = M.AMINO_ACID_SIDECHAIN_BOND[res][(k, l)]
+                ang = M.AMINO_ACID_SIDECHAIN_BOND_ANGLE[res][(j, k, l)]
+                assert ang["mean"] > 0 and bond["mean"] > 0, (res, quad)
+                assert ang["source"] == bond["source"] == "rosetta_params_408", (res, quad)
 
     def test_mainchain_torsion_definitions(self):
         assert M.MAINCHAIN_TORSION_DEFINITIONS == {

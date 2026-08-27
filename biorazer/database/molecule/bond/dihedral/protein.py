@@ -282,9 +282,10 @@ SIDECHAIN_CHI = {
 }
 
 #: 每种残基侧链的规范 IC-frame 理想二面角 (度), keyed by 生长四元组原子名
-#: (与 :data:`~biorazer.database.molecule.bond.length.protein.AMINO_ACID_SIDECHAIN_BOND`
-#: 同 key)。GLY 侧链为空。每条为 {mean, std, lb, up, source}; Rosetta ICOOR
-#: 只给理想点值, 故 std/lb/up = np.nan。
+#: (i,j,k,l), 即官方二面角定义 (如 chi1=(N,CA,CB,CG))。GLY 侧链为空。
+#: 每条为 {mean, std, lb, up, source}; Rosetta ICOOR 只给理想点值,
+#: 故 std/lb/up = np.nan。键长/键角见 bond.length/angle.protein 的侧链表
+#: (key 分别为 2/3 原子元组)。
 SIDECHAIN_IC_DIHEDRAL = {
     'ALA': {
         ('C', 'N', 'CA', 'CB'): {"mean": -122.80, "std": np.nan, "lb": np.nan, "up": np.nan, "source": "rosetta_params_408"},
