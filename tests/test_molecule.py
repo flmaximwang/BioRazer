@@ -81,13 +81,32 @@ class TestUniformRecord:
             assert rec["lb"] < rec["mean"] < rec["up"]
 
     def test_by_residue_bond_angle(self):
-        # merged residue-keyed AMINO_ACID_BOND_ANGLE: backbone refinements
-        # (Gly/Pro/Ala/VIT) carry real Engh-Huber spread
-        for res in ("Gly", "Pro", "Ala", "VIT"):
-            assert res in M.AMINO_ACID_BOND_ANGLE, res
-            for key, rec in M.AMINO_ACID_BOND_ANGLE[res].items():
+        # single residue-keyed AMINO_ACID_BOND_ANGLE: every residue carries a
+        # complete angle table.  The 5 universal backbone angles are always
+        # present; CB-CA-C is present for every residue with a CB (all but Gly).
+        uni = [("N", "CA", "C"), ("CA", "C", "N"), ("CA", "C", "O"),
+               ("C", "N", "CA"), ("O", "C", "N")]
+        for res, d in M.AMINO_ACID_BOND_ANGLE.items():
+            for key in uni:
+                assert key in d, (res, key)
+            if res != "GLY":
+                assert ("CB", "CA", "C") in d, (res, "CB-CA-C")
+            for key, rec in d.items():
                 assert self.REQUIRED <= set(rec), (res, key)
-                assert rec["lb"] < rec["mean"] < rec["up"]
+                assert isinstance(key, tuple) and len(key) == 3, (res, key)
+                if rec["source"] == "engh_huber_1991":
+                    assert rec["lb"] < rec["mean"] < rec["up"], (res, key)
+
+    def test_by_residue_bond_angle_refinements(self):
+        # refined backbone values (Engh-Huber per-residue) are written as
+        # literals overriding the generic reference.
+        assert M.AMINO_ACID_BOND_ANGLE["GLY"][("N", "CA", "C")]["mean"] == 112.5
+        assert M.AMINO_ACID_BOND_ANGLE["PRO"][("N", "CA", "C")]["mean"] == 111.8
+        assert M.AMINO_ACID_BOND_ANGLE["PRO"][("O", "C", "N")]["mean"] == 122.0
+        assert M.AMINO_ACID_BOND_ANGLE["ALA"][("CB", "CA", "C")]["mean"] == 110.5
+        # VIT = Val/Ile/Thr refined CB-CA-C
+        for res in ("VAL", "ILE", "THR"):
+            assert M.AMINO_ACID_BOND_ANGLE[res][("CB", "CA", "C")]["mean"] == 109.1
 
     def test_sidechain_bond_uses_nan_for_missing_spread(self):
         # Rosetta ICOOR gives ideal point values only -> std/lb/up are nan.
@@ -101,14 +120,14 @@ class TestUniformRecord:
         assert n == 87  # the bond count of IC_PATH (excluding GLY)
 
     def test_sidechain_bond_angle(self):
-        # the 20-AAs' side-chain sections of the merged AMINO_ACID_BOND_ANGLE
+        # Rosetta side-chain angle entries within each residue's table carry
+        # nan spread; the backbone (generic/Engh-Huber) entries carry real spread.
         for res, d in M.AMINO_ACID_BOND_ANGLE.items():
-            if res in ("Gly", "Pro", "Ala", "VIT"):
-                continue  # backbone refinements, tested above
             for key, rec in d.items():
                 assert self.REQUIRED <= set(rec), (res, key)
                 assert isinstance(key, tuple) and len(key) == 3, (res, key)
-                assert np.isnan(rec["std"]) and np.isnan(rec["lb"]) and np.isnan(rec["up"])
+                if rec["source"] == "rosetta_params_408":
+                    assert np.isnan(rec["std"]) and np.isnan(rec["lb"]) and np.isnan(rec["up"])
 
     def test_ss_torsion_angle(self):
         for ss, v in M.SS_BB_TORSION_ANGLE.items():
