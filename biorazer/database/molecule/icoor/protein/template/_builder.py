@@ -51,6 +51,7 @@ from biorazer.database.molecule.bond.length.protein import AMINO_ACID_SIDECHAIN_
 from biorazer.database.molecule.bond.angle.generic import AMINO_ACID_BOND_ANGLE
 from biorazer.database.molecule.bond.angle.protein import AMINO_ACID_SIDECHAIN_BOND_ANGLE
 from biorazer.database.molecule.bond.dihedral.protein import (
+    ALIAS_QUAD,
     SS_BB_TORSION_ANGLE,
     SIDECHAIN_CHI,
     SIDECHAIN_IC_DIHEDRAL,
@@ -166,7 +167,7 @@ def ss_torsions(ss):
     {'phi': 0, 'psi': 0, 'omega': 180}
     """
     v = SS_BB_TORSION_ANGLE[ss]
-    return {"phi": v["phi"]["mean"], "psi": v["psi"]["mean"], "omega": v["omega"]["mean"]}
+    return {alias: v[quad]["mean"] for alias, quad in ALIAS_QUAD.items()}
 
 
 def build_template(resn, ss, rotamer="canonical"):

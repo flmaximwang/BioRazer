@@ -29,7 +29,8 @@ from .by_ss import (  # noqa: F401
     BB_TORSION_REFS,
     OMEGA_TRANS,
     OMEGA_CIS,
-    MAINCHAIN_TORSION_DEFINITIONS,
+    ALIAS_QUAD,
+    QUAD_ALIAS,
 )
 from .by_residue import (  # noqa: F401
     AAS,
@@ -46,7 +47,7 @@ __all__ = [
     # backbone (by secondary structure)
     "SS_BB_TORSION_ANGLE", "DSSP_SS_CODE", "BB_TORSION_TURNS",
     "BB_TORSION_REFS", "OMEGA_TRANS", "OMEGA_CIS",
-    "MAINCHAIN_TORSION_DEFINITIONS",
+    "ALIAS_QUAD", "QUAD_ALIAS",
     # side-chain (by residue)
     "AAS", "SIDECHAIN_CHI", "SIDECHAIN_IC_DIHEDRAL", "ROTAMER_BIN",
     "NON_ROTAMERIC_BIN_WIDTH",
