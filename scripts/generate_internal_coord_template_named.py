@@ -7,7 +7,6 @@ directly from it, e.g. ``gly.py``::
 
     from biorazer.database.molecule.icoor.protein.template._builder import build_template
 
-    RESN = "GLY"
     IC_Gly_HelixAlpha = build_template("GLY", "alpha-helix", "canonical")
     ...
     __all__ = ["IC_Gly_HelixAlpha", ...]
@@ -62,18 +61,16 @@ def _template_token(resn, ss, rotamer="canonical"):
 GEN_MARKER = "# === GENERATED IC_* named templates - do not edit below ==="
 
 _HEADER = '''# -*- coding: utf-8 -*-
-"""Ideal {{secondary-structure x rotamer}} {{names[aa]}} {{var}} ``InternalCoord`` templates.
+"""Ideal {secondary-structure x rotamer} {names[aa]} {var} ``InternalCoord`` templates.
 
-Each template is the ideal heavy-atom topology for {{aa}} anchored at
-{{{{N, CA, C}}}}, with the side chain grown to ``rotamer`` and the
+Each template is the ideal heavy-atom topology for {aa} anchored at
+{{N, CA, C}}, with the side chain grown to ``rotamer`` and the
 ``phi``/``psi``/``omega`` of ``ss`` carried on the instance.  See
 :mod:`biorazer.database.molecule.icoor.protein.template` and
 :mod:`._builder` for the build rule and the per-conformer caveat.
 """
 
 from biorazer.database.molecule.icoor.protein.template._builder import build_template
-
-RESN = "{resn}"
 '''
 
 
@@ -114,7 +111,7 @@ def main():
     total = 0
     for resn in _RESIDUES:
         path = PKG / f"{resn.lower()}.py"
-        text = _HEADER.format(resn=resn)
+        text = _HEADER
         block = _generate_block(resn)
         path.write_text(text + "\n" + block, encoding="utf-8")
         total += len(_rotamer_names(resn)) * len(_SS_CLASSES)

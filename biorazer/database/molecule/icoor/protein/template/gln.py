@@ -10,8 +10,6 @@ Each template is the ideal heavy-atom topology for {aa} anchored at
 
 from biorazer.database.molecule.icoor.protein.template._builder import build_template
 
-RESN = "GLN"
-
 # === GENERATED IC_* named templates - do not edit below ===
 # Regenerate with: /opt/envs/BioRazer/bin/python scripts/generate_internal_coord_template_named.py
 

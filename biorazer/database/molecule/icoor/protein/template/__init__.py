@@ -17,7 +17,7 @@ axes**:
   measure-from-coordinates round-trip; see :mod:`._builder`).
 
 Each residue lives in its own module (``gly.py``, ``ser.py``, ...) exposing
-``RESN`` and its **own named template constants** ``IC_<Res>_<SS>[_<rotamer>]``,
+its **own named template constants** ``IC_<Res>_<SS>[_<rotamer>]``,
 each built directly from :func:`build_template` (no intermediate
 ``{ss: {rotamer}}`` dict), so the named templates live right next to their
 residue.
