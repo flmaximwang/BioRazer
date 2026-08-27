@@ -115,19 +115,25 @@ class TestUniformRecord:
             assert np.isnan(rec["std"]) and np.isnan(rec["lb"]) and np.isnan(rec["up"])
 
     def test_dunbrack_rotamers_framework(self):
-        # Classification framework: per-residue chi axes + non-rotameric flag.
-        for res, rec in M.DUNBRACK_ROTAMERS.items():
-            assert rec["chi"] == len(M.SIDECHAIN_CHI[res]), res
-            assert 0 <= rec["rotameric_chi"] <= rec["chi"], res
-            assert isinstance(rec["terminal_non_rotameric"], bool), res
-            if rec["terminal_non_rotameric"]:
-                # non-rotameric terminal chi -> 30-deg fine bins (must have a count)
-                assert isinstance(rec["non_rotameric_bins"], int) and rec["non_rotameric_bins"] > 0, res
-                # rotameric degrees must be fewer than total chi (terminal excluded)
-                assert rec["rotameric_chi"] < rec["chi"], res
+        # DUNBRACK_ROTAMERS was removed (superseded by SIDECHAIN_ROTAMER_LIB
+        # + SIDECHAIN_NON_ROTAMERIC_BINS).  rotameric_chi is derived directly
+        # from SIDECHAIN_CHI + SIDECHAIN_NON_ROTAMERIC_BINS: total chi axes
+        # minus the terminal non-rotameric chi (if any), capped at 2 (named
+        # rotamers cover chi1/chi2 only), PRO ring-constrained -> 0.
+        labels = ["g-", "g+", "t"]
+        for res in M.AAS:
+            if res == "PRO":
+                rc = 0
             else:
-                assert rec["non_rotameric_bins"] is None, res
-                assert rec["rotameric_chi"] == rec["chi"], res
+                rc = len(M.SIDECHAIN_CHI[res]) - (1 if res in M.SIDECHAIN_NON_ROTAMERIC_BINS else 0)
+                rc = min(2, rc)
+            named = {k for k in M.SIDECHAIN_ROTAMER_LIB if k.startswith(res + "_") and k != f"{res}_canonical"}
+            if rc == 0:
+                assert named == set(), res
+            elif rc == 1:
+                assert named == {f"{res}_{l}" for l in labels}, res
+            else:
+                assert named == {f"{res}_{a}_{b}" for a in labels for b in labels}, res
 
     def test_non_rotameric_bin_width(self):
         assert M.NON_ROTAMERIC_BIN_WIDTH == 30.0
@@ -145,10 +151,16 @@ class TestUniformRecord:
                 assert quad in M.SIDECHAIN_CHI[res], (key, quad)
                 assert REQUIRED <= set(rec), (key, quad)
                 assert np.isnan(rec["std"]) and np.isnan(rec["lb"]) and np.isnan(rec["up"])
-        # named-rotamer counts per rotameric_chi (derived from SIDECHAIN_CHI)
+        # named-rotamer counts per rotameric_chi.  PRO is ring-constrained
+        # (0 named); otherwise named rotamers cover only the first 2 chi,
+        # so rc is capped at 2 and the terminal non-rotameric chi is excluded.
         labels = ["g-", "g+", "t"]
         for res in M.AAS:
-            rc = len(M.SIDECHAIN_CHI[res]) - (1 if res in M.SIDECHAIN_NON_ROTAMERIC_BINS else 0)
+            if res == "PRO":
+                rc = 0
+            else:
+                rc = len(M.SIDECHAIN_CHI[res]) - (1 if res in M.SIDECHAIN_NON_ROTAMERIC_BINS else 0)
+                rc = min(2, rc)
             named = {k for k in LIB if k.startswith(res + "_") and k != f"{res}_canonical"}
             if rc == 0:
                 assert named == set(), res

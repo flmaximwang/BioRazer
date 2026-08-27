@@ -1,7 +1,6 @@
 # -*- coding: utf-8 -*-
 """Emit the sidechain-torsion dicts (SIDECHAIN_CHI / SIDECHAIN_IC_DIHEDRAL
-/ ROTAMER_BIN / NON_ROTAMERIC_BIN_WIDTH / SIDECHAIN_NON_ROTAMERIC_BINS /
-DUNBRACK_ROTAMERS) for
+/ ROTAMER_BIN / NON_ROTAMERIC_BIN_WIDTH / SIDECHAIN_NON_ROTAMERIC_BINS) for
 biorazer/database/molecule/bond/dihedral/protein/by_residue.py from Rosetta
 fa_standard params.
 
@@ -141,27 +140,6 @@ def main():
         hc = [q for q in chi if set(q) <= set(coord) and "NV" not in q]
         a('    %r: {"chi_quad": %r, "bins": %d},'
           % (aa, hc[-1], NON_ROTAMERIC[aa]["terminal_bins"]))
-    a('}')
-    a('')
-    a('DUNBRACK_ROTAMERS = {')
-    for aa in AAS:
-        _, chi = parse(aa)
-        coord = build(aa)
-        n = len([q for q in chi if set(q) <= set(coord) and "NV" not in q])
-        if aa in NON_ROTAMERIC:
-            nr = NON_ROTAMERIC[aa]
-            a('    %r: {"chi": %d, "rotameric_chi": %d, '
-              '"terminal_non_rotameric": True, "non_rotameric_bins": %d, '
-              '"bins": (("g-", -60.0), ("t", 180.0), ("g+", 60.0)), '
-              '"note": "末端 chi 非 rotameric, 30 deg 细 bin (Table S1 / Simple Mode); '
-              '数值表未内嵌 (见模块 docstring)"},'
-              % (aa, n, nr["rotameric_chi"], nr["terminal_bins"]))
-        else:
-            a('    %r: {"chi": %d, "rotameric_chi": %d, '
-              '"terminal_non_rotameric": False, "non_rotameric_bins": None, '
-              '"bins": (("g-", -60.0), ("t", 180.0), ("g+", 60.0)), '
-              '"note": "rotamer 分类框架; 数值表未内嵌 (见模块 docstring)"},'
-              % (aa, n, n))
     a('}')
     a('')
     a('SIDECHAIN_DIHE_REFS = {')
