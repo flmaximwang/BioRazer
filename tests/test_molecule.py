@@ -46,9 +46,8 @@ class TestPackageLayout:
         assert M.BOND_REFS is len_protein.BOND_REFS
         assert M.AMINO_ACID_BOND_LENGTH_BY_RESIDUE is len_protein.AMINO_ACID_BOND_LENGTH_BY_RESIDUE
         assert M.AMINO_ACID_SIDECHAIN_BOND is len_protein.AMINO_ACID_SIDECHAIN_BOND
-        assert M.AMINO_ACID_BOND_ANGLE is ang_generic.AMINO_ACID_BOND_ANGLE
-        assert M.AMINO_ACID_BOND_ANGLE_BY_RESIDUE is ang_protein.AMINO_ACID_BOND_ANGLE_BY_RESIDUE
-        assert M.AMINO_ACID_SIDECHAIN_BOND_ANGLE is ang_protein.AMINO_ACID_SIDECHAIN_BOND_ANGLE
+        assert M.AMINO_ACID_BOND_ANGLE is ang_protein.AMINO_ACID_BOND_ANGLE
+        assert M.AMINO_ACID_BACKBONE_BOND_ANGLE is ang_generic.AMINO_ACID_BACKBONE_BOND_ANGLE
         assert M.SS_BB_TORSION_ANGLE is dih_protein.SS_BB_TORSION_ANGLE
         assert M.OMEGA_TRANS is dih_protein.OMEGA_TRANS
         assert M.SIDECHAIN_CHI is dih_protein.SIDECHAIN_CHI
@@ -75,14 +74,20 @@ class TestUniformRecord:
                 assert self.REQUIRED <= set(rec), (res, key)
 
     def test_generic_bond_angle(self):
-        for key, rec in M.AMINO_ACID_BOND_ANGLE.items():
+        # flat generic backbone table: no residue key, triad keys, real spread
+        for key, rec in M.AMINO_ACID_BACKBONE_BOND_ANGLE.items():
             assert self.REQUIRED <= set(rec), key
+            assert isinstance(key, tuple) and len(key) == 3, key
             assert rec["lb"] < rec["mean"] < rec["up"]
 
     def test_by_residue_bond_angle(self):
-        for res, d in M.AMINO_ACID_BOND_ANGLE_BY_RESIDUE.items():
-            for key, rec in d.items():
+        # merged residue-keyed AMINO_ACID_BOND_ANGLE: backbone refinements
+        # (Gly/Pro/Ala/VIT) carry real Engh-Huber spread
+        for res in ("Gly", "Pro", "Ala", "VIT"):
+            assert res in M.AMINO_ACID_BOND_ANGLE, res
+            for key, rec in M.AMINO_ACID_BOND_ANGLE[res].items():
                 assert self.REQUIRED <= set(rec), (res, key)
+                assert rec["lb"] < rec["mean"] < rec["up"]
 
     def test_sidechain_bond_uses_nan_for_missing_spread(self):
         # Rosetta ICOOR gives ideal point values only -> std/lb/up are nan.
@@ -96,7 +101,10 @@ class TestUniformRecord:
         assert n == 87  # the bond count of IC_PATH (excluding GLY)
 
     def test_sidechain_bond_angle(self):
-        for res, d in M.AMINO_ACID_SIDECHAIN_BOND_ANGLE.items():
+        # the 20-AAs' side-chain sections of the merged AMINO_ACID_BOND_ANGLE
+        for res, d in M.AMINO_ACID_BOND_ANGLE.items():
+            if res in ("Gly", "Pro", "Ala", "VIT"):
+                continue  # backbone refinements, tested above
             for key, rec in d.items():
                 assert self.REQUIRED <= set(rec), (res, key)
                 assert isinstance(key, tuple) and len(key) == 3, (res, key)
@@ -245,8 +253,8 @@ class TestMigratedValues:
         assert M.AMINO_ACID_BOND_LENGTH[("N", "CA")]["mean"] == 1.458
 
     def test_bond_angle_generic(self):
-        assert M.AMINO_ACID_BOND_ANGLE[("N", "CA", "C")]["mean"] == 111.2
-        assert M.AMINO_ACID_BOND_ANGLE[("CA", "C", "N")]["mean"] == 116.2
+        assert M.AMINO_ACID_BACKBONE_BOND_ANGLE[("N", "CA", "C")]["mean"] == 111.2
+        assert M.AMINO_ACID_BACKBONE_BOND_ANGLE[("CA", "C", "N")]["mean"] == 116.2
 
     def test_ss_torsion_alpha_helix(self):
         ah = M.SS_BB_TORSION_ANGLE["alpha-helix"]
@@ -262,7 +270,7 @@ class TestMigratedValues:
             for quad in quads:
                 _, j, k, l = quad
                 assert (k, l) in M.AMINO_ACID_SIDECHAIN_BOND[res], (res, quad)
-                assert (j, k, l) in M.AMINO_ACID_SIDECHAIN_BOND_ANGLE[res], (res, quad)
+                assert (j, k, l) in M.AMINO_ACID_BOND_ANGLE[res], (res, quad)
                 assert quad in M.SIDECHAIN_IC_DIHEDRAL[res], (res, quad)
 
     def test_sidechain_length_angle_consistent(self):
@@ -272,7 +280,7 @@ class TestMigratedValues:
             for quad in quads:
                 i, j, k, l = quad
                 bond = M.AMINO_ACID_SIDECHAIN_BOND[res][(k, l)]
-                ang = M.AMINO_ACID_SIDECHAIN_BOND_ANGLE[res][(j, k, l)]
+                ang = M.AMINO_ACID_BOND_ANGLE[res][(j, k, l)]
                 assert ang["mean"] > 0 and bond["mean"] > 0, (res, quad)
                 assert ang["source"] == bond["source"] == "rosetta_params_408", (res, quad)
 

@@ -25,7 +25,7 @@ Appendix A (Laskowski et al., 1993), 并与 Rosetta 408 氨基酸 .params
 
 键长单位 **埃 (Å)**。侧链键的 key 为 **2 原子元组 ``(k, l)``** (被生长
 原子 ``l`` 与其成键父原子 ``k``); 对应键角见
-:data:`~biorazer.database.molecule.bond.angle.protein.AMINO_ACID_SIDECHAIN_BOND_ANGLE`
+:data:`~biorazer.database.molecule.bond.angle.protein.AMINO_ACID_BOND_ANGLE`
 (key 为 3 原子元组), 二面角见
 :data:`~biorazer.database.molecule.bond.dihedral.protein.SIDECHAIN_IC_DIHEDRAL`
 (key 为生长四元组)。

@@ -1,17 +1,18 @@
 # -*- coding: utf-8 -*-
-"""Protein-specific covalent bond angles (°): per-residue refinements.
+"""Protein-specific covalent bond angles (°): per-residue.
 
 数据集来源与诚实性说明
 ────────────────────────
-本模块记录蛋白质**逐残基细分**的共价键角理想值:
+本模块记录蛋白质**逐残基**的共价键角理想值,汇聚骨架细分与侧链于同一
+residue-keyed 表 ``AMINO_ACID_BOND_ANGLE`` (key 为残基名, 值为 ``{(j, k, l):
+{mean, std, lb, up, source}}``):
 
-* ``AMINO_ACID_BOND_ANGLE_BY_RESIDUE`` -- Engh & Huber (1991) 对同一化学
-  键角按残基区分的目标值 (key 为单残基型 Gly/Pro/Ala 或同类型残基组
-  VIT=Val,Ile,Thr), 覆盖 :mod:`..angle.generic` 主表的通用值。
-* ``AMINO_ACID_SIDECHAIN_BOND_ANGLE`` -- 20 种标准氨基酸**侧链** (CA 的
-  CB 及以外重原子, 见
+* **骨架** 值覆盖 :mod:`..angle.generic` 主表 (``AMINO_ACID_BACKBONE_BOND_ANGLE``)
+  的通用值, 对同一化学键按残基区分 (Engh & Huber 1991): key 为单残基型
+  Gly/Pro/Ala 或同类型残基组 VIT=Val,Ile,Thr。
+* **侧链** (CA 的 CB 及以外重原子, 见
   :data:`biorazer.database.molecule.icoor.protein.topology.IC_PATH` 的
-  生长路径) 的理想键角。数值为**理想点值 (ideal point values)**, 翻译自
+  生长路径) 理想键角。数值为**理想点值 (ideal point values)**, 翻译自
   Rosetta 408 的 ``fa_standard`` 残基 .params (``ICOOR_INTERNAL``) 构建的
   规范残基几何 —— Rosetta 的主链/侧链理想几何源自 Engh & Huber (1991)
   (见 :mod:`..angle.generic` 的交叉核对)。键角即 ``180° − theta`` (解码后
@@ -21,8 +22,8 @@
 理想点值, 不给 CSD sigma; 需要 std 时请以 E&H 1991 原始文献为准。
 故侧链条目 std/lb/up 为 ``np.nan``。
 
-键角单位 **度 (degree)**。侧链键角的 key 为 **3 原子元组 ``(j, k, l)``**
-(顶点在 ``k``); 对应键长见
+键角单位 **度 (degree)**。键角的 key 为 **3 原子元组 ``(j, k, l)``** (顶点
+在 ``k``); 对应键长见
 :data:`~biorazer.database.molecule.bond.length.protein.AMINO_ACID_SIDECHAIN_BOND`
 (key 为 2 原子元组), 二面角见
 :data:`~biorazer.database.molecule.bond.dihedral.protein.SIDECHAIN_IC_DIHEDRAL`
@@ -33,8 +34,11 @@ import numpy as np
 
 from .generic import BOND_REFS  # noqa: F401  (shared provenance)
 
-#: 键角按残基细分 (Engh & Huber 1991)。
-AMINO_ACID_BOND_ANGLE_BY_RESIDUE = {
+#: 键角按残基细分 (Engh & Huber 1991 骨架 + Rosetta 408 侧链理想点值)。
+#: key 为残基名 (单残基型 Gly/Pro/Ala、同类型残基组 VIT, 以及 20 种标准
+#: 氨基酸的侧链)。骨架细分覆盖 generic 主表; 侧链条目 std/lb/up 为 np.nan。
+AMINO_ACID_BOND_ANGLE = {
+    # ---- 骨架 (Engh & Huber 1991 按残基细分) --------------------------------
     "Gly": {
         ("N", "CA", "C"): {"mean": 112.5, "std": 2.9, "lb": 103.8, "up": 121.2,
                             "note": "Gly NH1-CH2G+C 112.5±2.9。", "source": "engh_huber_1991"},
@@ -54,24 +58,16 @@ AMINO_ACID_BOND_ANGLE_BY_RESIDUE = {
                             "note": "Pro C-N-CH1E 122.6±5.0 (pyrrolidine 环构象浮动, sigma 大)。", "source": "engh_huber_1991"},
         ("O", "C", "N"): {"mean": 122.0, "std": 1.4, "lb": 117.8, "up": 126.2,
                             "note": "Pro O-C-N 122.0±1.4。", "source": "engh_huber_1991"},
-        ("N", "CA", "CB"): {"mean": 103.0, "std": 1.1, "lb": 99.7, "up": 106.3,
-                            "note": "Pro N-CH1E-CH2E 103.0±1.1 (pyrrolidine 环使该角显著收窄)。", "source": "engh_huber_1991"},
     },
     "Ala": {
         ("CB", "CA", "C"): {"mean": 110.5, "std": 1.5, "lb": 106.0, "up": 115.0,
                              "note": "Ala CH3E-CH1E-C 110.5±1.5。", "source": "engh_huber_1991"},
-        ("N", "CA", "CB"): {"mean": 110.4, "std": 1.5, "lb": 105.9, "up": 114.9,
-                             "note": "Ala NH1-CH1E-CH3E 110.4±1.5。", "source": "engh_huber_1991"},
     },
     "VIT": {  # Val, Ile, Thr
         ("CB", "CA", "C"): {"mean": 109.1, "std": 2.2, "lb": 102.5, "up": 115.7,
                              "note": "Val/Ile/Thr CH1E-CH1E-C 109.1±2.2。", "source": "engh_huber_1991"},
-        ("N", "CA", "CB"): {"mean": 111.5, "std": 1.7, "lb": 106.4, "up": 116.6,
-                             "note": "Val/Ile/Thr NH1-CH1E-CH1E 111.5±1.7。", "source": "engh_huber_1991"},
     },
-}
-
-AMINO_ACID_SIDECHAIN_BOND_ANGLE = {
+    # ---- 侧链 (Rosetta 408 ICOOR 理想点值) -----------------------------------
     "ALA": {
         ('N', 'CA', 'CB'): {"mean": 110.37, "std": np.nan, "lb": np.nan, "up": np.nan, "note": "Rosetta fa_standard ALA.params ICOOR ideal", "source": "rosetta_params_408"},
     },

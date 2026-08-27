@@ -21,7 +21,8 @@ per-module homes)::
 
     from biorazer.database.molecule import (
         AMINO_ACID_BOND_LENGTH,            # bond.length.protein (by_residue)
-        AMINO_ACID_BOND_ANGLE,             # bond.angle.generic
+        AMINO_ACID_BOND_ANGLE,             # bond.angle.protein (residue-keyed)
+        AMINO_ACID_BACKBONE_BOND_ANGLE,    # bond.angle.generic (flat backbone)
         SS_BB_TORSION_ANGLE,               # bond.dihedral.protein.by_ss
         IC_PATH,                           # icoor.protein.topology
         BACKBONE_IC_PATH,                  # icoor.protein.topology
@@ -37,11 +38,8 @@ from .bond.length.protein import (  # noqa: F401
     AMINO_ACID_SIDECHAIN_BOND,
     BOND_SIDECHAIN_REFS,
 )
-from .bond.angle.generic import AMINO_ACID_BOND_ANGLE  # noqa: F401
-from .bond.angle.protein import (  # noqa: F401
-    AMINO_ACID_BOND_ANGLE_BY_RESIDUE,
-    AMINO_ACID_SIDECHAIN_BOND_ANGLE,
-)
+from .bond.angle.generic import AMINO_ACID_BACKBONE_BOND_ANGLE  # noqa: F401
+from .bond.angle.protein import AMINO_ACID_BOND_ANGLE  # noqa: F401
 from .bond.dihedral.protein import (  # noqa: F401
     SS_BB_TORSION_ANGLE,
     DSSP_SS_CODE,
@@ -76,8 +74,7 @@ __all__ = [
     "AMINO_ACID_BOND_LENGTH", "AMINO_ACID_BOND_LENGTH_BY_RESIDUE",
     "AMINO_ACID_SIDECHAIN_BOND", "BOND_REFS", "BOND_SIDECHAIN_REFS",
     # bond angle
-    "AMINO_ACID_BOND_ANGLE", "AMINO_ACID_BOND_ANGLE_BY_RESIDUE",
-    "AMINO_ACID_SIDECHAIN_BOND_ANGLE",
+    "AMINO_ACID_BOND_ANGLE", "AMINO_ACID_BACKBONE_BOND_ANGLE",
     # bond dihedral
     "SS_BB_TORSION_ANGLE", "DSSP_SS_CODE", "BB_TORSION_TURNS",
     "BB_TORSION_REFS", "OMEGA_TRANS", "OMEGA_CIS",

@@ -16,8 +16,9 @@
 
 这里的每条 key 是**三个原子名三元组** (如 ``("N", "CA", "C")``, 角顶点
 在中间原子), 值为最「一般」的 Engh-Huber 条目 (即「除 Gly/Pro」或
-「除 Gly」那个)。蛋白质残基细分值 (Gly/Pro/Ala/VIT...) 见
-:mod:`.protein` 的 ``*_BY_RESIDUE`` 表。
+「除 Gly」那个)。这张**无 residue key 的扁平表** 只记录**骨架**通用角;
+蛋白质残基细分值 (Gly/Pro/Ala/VIT...) 与 20 种氨基酸**侧链**键角统一并入
+:mod:`.protein` 的 ``AMINO_ACID_BOND_ANGLE`` (residue-keyed) 表。
 
 单位: **度 (degree)**。每条记录含 ``mean`` (目标值)、``std`` (CSD 样本
 标准差)、``lb``/``up`` (由 ``mean ± 3*std`` 得到的合理上下界)、
@@ -35,14 +36,15 @@ import numpy as np
 from ..length.protein import BOND_REFS  # noqa: F401  (shared provenance)
 
 # ---------------------------------------------------------------------------
-# 键角主表 (单位: 度)
+# 键角主表 (骨架通用, 单位: 度)
 # ---------------------------------------------------------------------------
 # 每个键角以三个原子名三元组为 key (角顶点在中间原子)。数值同 Engh & Huber。
-AMINO_ACID_BOND_ANGLE = {
+# 无 residue key (扁平); 残基细分值见 :mod:`.protein` 的 AMINO_ACID_BOND_ANGLE。
+AMINO_ACID_BACKBONE_BOND_ANGLE = {
     # N-CA-C: 通用 (非 Gly/Pro) —— 骨架核心角度 τ
     ("N", "CA", "C"): {
         "mean": 111.2, "std": 2.8, "lb": 102.8, "up": 119.6,
-        "note": "N-Calpha-C (τ)。Engh-Huber NH1-CH1E-C 111.2±2.8 (except Gly,Pro); Gly 112.5±2.9; Pro 111.8±2.5 (见 protein._BY_RESIDUE)。",
+        "note": "N-Calpha-C (τ)。Engh-Huber NH1-CH1E-C 111.2±2.8 (except Gly,Pro); Gly 112.5±2.9; Pro 111.8±2.5 (见 protein.AMINO_ACID_BOND_ANGLE)。",
         "source": ("engh_huber_1991", "procheck_appendix_a"),
     },
     # CA-C-N: 通用 (非 Gly/Pro)
@@ -72,13 +74,13 @@ AMINO_ACID_BOND_ANGLE = {
     # CB-CA-C: 通用 (其余残基)
     ("CB", "CA", "C"): {
         "mean": 110.1, "std": 1.9, "lb": 104.4, "up": 115.8,
-        "note": "Cbeta-Calpha-C。Engh-Huber CH2E-CH1E-C (the rest) 110.1±1.9; Ala 110.5±1.5; Val/Ile/Thr 109.1±2.2 (见 protein._BY_RESIDUE)。",
+        "note": "Cbeta-Calpha-C。Engh-Huber CH2E-CH1E-C (the rest) 110.1±1.9; Ala 110.5±1.5; Val/Ile/Thr 109.1±2.2 (见 protein.AMINO_ACID_BOND_ANGLE)。",
         "source": ("engh_huber_1991", "procheck_appendix_a"),
     },
     # N-CA-CB: 通用 (其余残基, 非 Ala/Pro/VIT)
     ("N", "CA", "CB"): {
         "mean": 110.5, "std": 1.7, "lb": 105.4, "up": 115.6,
-        "note": "N-Calpha-Cbeta。Engh-Huber NH1-CH1E-CH2E (the rest) 110.5±1.7; Ala 110.4±1.5; Val/Ile/Thr 111.5±1.7; Pro N-CH1E-CH2E 103.0±1.1 (见 protein._BY_RESIDUE)。",
+        "note": "N-Calpha-Cbeta。Engh-Huber NH1-CH1E-CH2E (the rest) 110.5±1.7; Ala 110.4±1.5; Val/Ile/Thr 111.5±1.7; Pro N-CH1E-CH2E 103.0±1.1 (见 protein.AMINO_ACID_BOND_ANGLE)。",
         "source": ("engh_huber_1991", "procheck_appendix_a"),
     },
 }

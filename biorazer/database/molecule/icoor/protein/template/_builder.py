@@ -48,8 +48,8 @@ import numpy as np
 from biorazer.structure.objects.internal_coords import InternalCoord, InternalCoordAtom
 from biorazer.database.molecule.icoor.protein.topology import BACKBONE_IC_PATH, IC_PATH
 from biorazer.database.molecule.bond.length.protein import AMINO_ACID_SIDECHAIN_BOND, AMINO_ACID_BOND_LENGTH
-from biorazer.database.molecule.bond.angle.generic import AMINO_ACID_BOND_ANGLE
-from biorazer.database.molecule.bond.angle.protein import AMINO_ACID_SIDECHAIN_BOND_ANGLE
+from biorazer.database.molecule.bond.angle.generic import AMINO_ACID_BACKBONE_BOND_ANGLE
+from biorazer.database.molecule.bond.angle.protein import AMINO_ACID_BOND_ANGLE
 from biorazer.database.molecule.bond.dihedral.protein import (
     ALIAS_QUAD,
     SS_BB_TORSION_ANGLE,
@@ -225,7 +225,7 @@ def build_template(resn, ss, rotamer="canonical"):
     180.0
     """
     bl = AMINO_ACID_BOND_LENGTH
-    ba = AMINO_ACID_BOND_ANGLE
+    ba = AMINO_ACID_BACKBONE_BOND_ANGLE
 
     order = ["N", "CA", "C", "O"]
     seen = set(order)
@@ -264,7 +264,7 @@ def build_template(resn, ss, rotamer="canonical"):
 
     # side chain straight from the tables; chi quads overridden by the rotamer
     sc_bond = AMINO_ACID_SIDECHAIN_BOND[resn]
-    sc_angle = AMINO_ACID_SIDECHAIN_BOND_ANGLE[resn]
+    sc_angle = AMINO_ACID_BOND_ANGLE[resn]
     targets = rotamer_targets(resn, rotamer)
     for quad in IC_PATH[resn]:
         i, j, k, l = quad
