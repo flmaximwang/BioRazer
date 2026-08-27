@@ -121,13 +121,14 @@ class InternalCoordAtom:
                  "element")
 
     def __init__(self, ins_code="", chain_id="A", res_name="GLY", res_id=1,
-                 name="N", element="N"):
+                 name="N", element=None):
         self.ins_code = ins_code
         self.chain_id = chain_id
         self.res_name = res_name
         self.res_id = res_id
         self.name = name
-        self.element = element
+        self.element = (element if element is not None
+                        else (name[0] if name[0] in ("N", "O", "S") else "C"))
 
     @classmethod
     def from_atom(cls, atom_array, index):

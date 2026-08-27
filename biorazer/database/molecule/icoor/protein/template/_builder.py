@@ -110,14 +110,6 @@ def rotamer_targets(resn, rotamer):
 
 
 # --------------------------------------------------------------------------- #
-# helpers
-# --------------------------------------------------------------------------- #
-def _element(atom_name):
-    """Heavy-atom element from a PDB atom name (first letter for N/O/S, else C)."""
-    return atom_name[0] if atom_name[0] in ("N", "O", "S") else "C"
-
-
-# --------------------------------------------------------------------------- #
 # public API
 # --------------------------------------------------------------------------- #
 def ss_torsions(ss):
@@ -158,8 +150,8 @@ def build_template(resn, ss, rotamer="canonical"):
         if l not in seen:
             order.append(l)
             seen.add(l)
-    atoms = [InternalCoordAtom(res_name=resn, name=nm, element=_element(nm),
-                        chain_id="A", res_id=1) for nm in order]
+    atoms = [InternalCoordAtom(res_name=resn, name=nm, chain_id="A", res_id=1)
+             for nm in order]
     ic = InternalCoord(atoms=atoms)
     idx = {nm: n for n, nm in enumerate(order)}
 
