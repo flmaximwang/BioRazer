@@ -53,7 +53,7 @@ from biorazer.database.molecule.bond.angle.protein import AMINO_ACID_SIDECHAIN_B
 from biorazer.database.molecule.bond.dihedral.protein import (
     SS_BB_TORSION_ANGLE,
     SIDECHAIN_CHI,
-    SIDECHAIN_IC_DIHEDRAL,
+    SIDECHAIN_ROTAMER_LIB,
     ROTAMER_BIN,
 )
 
@@ -186,7 +186,8 @@ def build_template(resn, ss, rotamer="canonical"):
         ic.bond_distances[(idx[k], idx[l])] = sc_bond[(k, l)]["mean"]
         ic.bond_angles[(idx[j], idx[k], idx[l])] = sc_angle[(j, k, l)]["mean"]
         ic.dihedra[(idx[i], idx[j], idx[k], idx[l])] = (
-            targets[l] if l in targets else SIDECHAIN_IC_DIHEDRAL[resn][quad]["mean"]
+            targets[l] if l in targets
+            else SIDECHAIN_ROTAMER_LIB[f"{resn}_canonical"][quad]["mean"]
         )
 
     t = ss_torsions(ss)

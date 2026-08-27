@@ -108,11 +108,17 @@ class TestUniformRecord:
                 assert self.REQUIRED <= set(v[t]), (ss, t)
                 assert "up" in v[t] and "ub" not in v[t]
 
-    def test_sidechain_ic_dihedral(self):
-        for res, d in M.SIDECHAIN_IC_DIHEDRAL.items():
+    def test_sidechain_ic_dihedral_private(self):
+        # the canonical IC-frame table is private (_-prefixed) and only
+        # consumed as the SIDECHAIN_ROTAMER_LIB canonical base; it is still
+        # reachable from the module for validation.
+        from biorazer.database.molecule.bond.dihedral.protein import by_residue
+        table = by_residue._SIDECHAIN_IC_DIHEDRAL
+        for res, d in table.items():
             for key, rec in d.items():
                 assert self.REQUIRED <= set(rec), (res, key)
                 assert np.isnan(rec["std"]) and np.isnan(rec["lb"]) and np.isnan(rec["up"])
+                assert key in M.IC_PATH[res], (res, key)
 
     def test_rotamer_bin(self):
         for name, rec in M.ROTAMER_BIN.items():
@@ -154,8 +160,11 @@ class TestUniformRecord:
         for key, quad_map in LIB.items():
             res = key.split("_")[0]
             assert res in M.SIDECHAIN_CHI, key
+            # every entry carries the COMPLETE side-chain dihedral map:
+            # all IC_PATH quads of that residue (not just chi quads).
+            assert set(quad_map) == set(M.IC_PATH[res]), (key, set(quad_map))
             for quad, rec in quad_map.items():
-                assert quad in M.SIDECHAIN_CHI[res], (key, quad)
+                assert quad in M.IC_PATH[res], (key, quad)
                 assert REQUIRED <= set(rec), (key, quad)
                 assert np.isnan(rec["std"]) and np.isnan(rec["lb"]) and np.isnan(rec["up"])
         # named-rotamer counts per rotameric_chi.  PRO is ring-constrained
@@ -179,21 +188,35 @@ class TestUniformRecord:
                 assert named == {f"{res}_{l}" for l in labels}, res
             else:
                 assert named == {f"{res}_{a}_{b}" for a in labels for b in labels}, res
-        # canonical quad->mean matches template values
+        # canonical quad->mean matches the private template table
+        from biorazer.database.molecule.bond.dihedral.protein import by_residue
+        IC = by_residue._SIDECHAIN_IC_DIHEDRAL
         for res in M.AAS:
+            assert set(LIB[f"{res}_canonical"]) == set(IC[res]), res
             for quad, rec in LIB[f"{res}_canonical"].items():
-                assert M.SIDECHAIN_IC_DIHEDRAL[res][quad]["mean"] == rec["mean"], (res, quad)
-        # source: canonical -> rosetta_params_408; named (g-/g+/t) ->
-        # dunbrack_2010; non-rotameric bins -> dunbrack_2010_uniform_30deg_bin
+                assert IC[res][quad]["mean"] == rec["mean"], (res, quad)
+        # source is per-quad: canonical quads in any entry -> rosetta_params_408;
+        # named (g-/g+/t) entries override their rotameric chi quads ->
+        # dunbrack_2010; nr entries override the terminal non-rotameric chi ->
+        # dunbrack_2010_uniform_30deg_bin.  All other quads stay canonical.
+        nonrot = M.SIDECHAIN_NON_ROTAMERIC_BINS
         for key, quad_map in LIB.items():
+            res = key.split("_")[0]
             if key.endswith("_canonical"):
-                expect_src = "rosetta_params_408"
-            elif _is_nr_bin_key(key.split("_")[0], key):
-                expect_src = "dunbrack_2010_uniform_30deg_bin"
+                override = {}
+            elif _is_nr_bin_key(res, key):
+                override = {nonrot[res]["chi_quad"]: "dunbrack_2010_uniform_30deg_bin"}
             else:
-                expect_src = "dunbrack_2010"
-            for rec in quad_map.values():
-                assert rec["source"] == expect_src, (key, rec["source"])
+                # named rotamer: overridden chi quads are the rotatable ones
+                # the rotamer name encodes (first 1 or 2 chi, excluding any
+                # terminal non-rotameric chi).
+                rc = len(M.SIDECHAIN_CHI[res]) - (1 if res in nonrot else 0)
+                rc = min(2, rc)
+                over_q = M.SIDECHAIN_CHI[res][:rc]
+                override = {q: "dunbrack_2010" for q in over_q}
+            for quad, rec in quad_map.items():
+                expect_src = override.get(quad, "rosetta_params_408")
+                assert rec["source"] == expect_src, (key, quad, rec["source"])
 
     def test_sidechain_non_rotameric_bins(self):
         B = M.SIDECHAIN_NON_ROTAMERIC_BINS
@@ -203,16 +226,23 @@ class TestUniformRecord:
             assert spec["bins"] == expect[res], (res, spec)
             assert spec["chi_quad"] in M.SIDECHAIN_CHI[res], (res, spec)
             assert spec["chi_quad"] == M.SIDECHAIN_CHI[res][-1], (res, spec)  # terminal chi
-        # terminal chi excluded from named (g-/g+/t) rotamers
+        # terminal chi stays canonical (not rotated) in named (g-/g+/t)
+        # rotamers: it is present at its canonical value/source, not a
+        # rotamer override.
         for res in expect:
             last = M.SIDECHAIN_CHI[res][-1]
+            canon_mean = M.SIDECHAIN_ROTAMER_LIB[f"{res}_canonical"][last]["mean"]
             for key, quad_map in M.SIDECHAIN_ROTAMER_LIB.items():
                 if key.startswith(res + "_") and not key.endswith("_canonical") \
                    and not _is_nr_bin_key(res, key):
-                    assert last not in quad_map, (res, key)
+                    assert last in quad_map, (res, key)  # present (full geometry)
+                    rec = quad_map[last]
+                    assert rec["mean"] == canon_mean, (res, key, rec["mean"])
+                    assert rec["source"] == "rosetta_params_408", (res, key, rec["source"])
         # non-rotameric bins: exactly ``bins`` nr entries per residue, bin
         # centers at NON_ROTAMERIC_BIN_WIDTH*(i-0.5) = 15,45,75,... covering
-        # the full period (bins*30 deg), each carrying only the terminal chi.
+        # the full period (bins*30 deg), each carrying the full geometry but
+        # overriding only the terminal non-rotameric chi.
         for res, spec in B.items():
             nbin = spec["bins"]
             nq = spec["chi_quad"]
@@ -222,10 +252,14 @@ class TestUniformRecord:
             for i in range(1, nbin + 1):
                 key = f"{res}_nr{i}"
                 quad_map = M.SIDECHAIN_ROTAMER_LIB[key]
-                assert set(quad_map) == {nq}, (key, set(quad_map))
+                assert set(quad_map) == set(M.IC_PATH[res]), (key, set(quad_map))
                 rec = quad_map[nq]
                 assert rec["mean"] == M.NON_ROTAMERIC_BIN_WIDTH * (i - 0.5), (key, rec["mean"])
                 assert rec["source"] == "dunbrack_2010_uniform_30deg_bin", (key, rec["source"])
+                # all non-terminal quads stay canonical
+                for quad, r2 in quad_map.items():
+                    if quad != nq:
+                        assert r2["source"] == "rosetta_params_408", (key, quad, r2["source"])
 
     def test_atom_radius(self):
         for elm, rec in M.ATOM_RADIUS.items():
@@ -256,13 +290,16 @@ class TestMigratedValues:
     def test_sidechain_tables_keyed_by_arity(self):
         # length keys are 2-atom tuples, angle keys are 3-atom tuples,
         # dihedral keys stay 4-atom grow quads; each IC_PATH quad must resolve
-        # in all three tables.
+        # in all three tables (dihedral via the canonical rotamer-lib entry).
+        from biorazer.database.molecule.bond.dihedral.protein import by_residue
+        IC = by_residue._SIDECHAIN_IC_DIHEDRAL
         for res, quads in M.IC_PATH.items():
             for quad in quads:
                 _, j, k, l = quad
                 assert (k, l) in M.AMINO_ACID_SIDECHAIN_BOND[res], (res, quad)
                 assert (j, k, l) in M.AMINO_ACID_SIDECHAIN_BOND_ANGLE[res], (res, quad)
-                assert quad in M.SIDECHAIN_IC_DIHEDRAL[res], (res, quad)
+                assert quad in IC[res], (res, quad)
+                assert quad in M.SIDECHAIN_ROTAMER_LIB[f"{res}_canonical"], (res, quad)
 
     def test_sidechain_length_angle_consistent(self):
         # the same (res, grow quad) must map to the same bond/angle values

@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-"""Emit the sidechain-torsion dicts (SIDECHAIN_CHI / SIDECHAIN_IC_DIHEDRAL
+"""Emit the sidechain-torsion dicts (SIDECHAIN_CHI / _SIDECHAIN_IC_DIHEDRAL
 / ROTAMER_BIN / NON_ROTAMERIC_BIN_WIDTH / SIDECHAIN_NON_ROTAMERIC_BINS) for
 biorazer/database/molecule/bond/dihedral/protein/by_residue.py from Rosetta
 fa_standard params.
@@ -97,11 +97,12 @@ def main():
     a('}')
     a('')
     a('')
-    a('#: 每种残基侧链的规范 IC-frame 理想二面角 (度), keyed by 生长四元组原子名')
+    a('#: **私有** 的规范 IC-frame 理想二面角 (度), keyed by 生长四元组原子名')
     a('#: (i,j,k,l), 即官方二面角定义 (如 chi1=(N,CA,CB,CG))。')
     a('#: GLY 侧链为空。每条为 {mean, std, lb, up, source}; std/lb/up 为 np.nan')
-    a('#: (Rosetta ICOOR 只给理想点值)。')
-    a('SIDECHAIN_IC_DIHEDRAL = {')
+    a('#: (Rosetta ICOOR 只给理想点值)。只作为 SIDECHAIN_ROTAMER_LIB 的')
+    a('#: canonical 基座被内部消费 (公开入口是 <RES>_canonical)。')
+    a('_SIDECHAIN_IC_DIHEDRAL = {')
     for aa in AAS:
         coord = build(aa)
         a('    %r: {' % aa)
