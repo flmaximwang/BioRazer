@@ -27,6 +27,12 @@ from biorazer.database.molecule.atom import radius as atom_radius
 from biorazer.database.molecule.icoor.protein import topology
 
 
+def _is_nr_bin_key(res, key):
+    """True if ``key`` is a ``<RES>_nr<i>`` non-rotameric bin entry."""
+    prefix = f"{res}_nr"
+    return key.startswith(prefix) and key[len(prefix):].isdigit()
+
+
 class TestPackageLayout:
     """The molecule package exposes every public table."""
 
@@ -126,7 +132,9 @@ class TestUniformRecord:
             else:
                 rc = len(M.SIDECHAIN_CHI[res]) - (1 if res in M.SIDECHAIN_NON_ROTAMERIC_BINS else 0)
                 rc = min(2, rc)
-            named = {k for k in M.SIDECHAIN_ROTAMER_LIB if k.startswith(res + "_") and k != f"{res}_canonical"}
+            named = {k for k in M.SIDECHAIN_ROTAMER_LIB if k.startswith(res + "_")
+                     and k != f"{res}_canonical"
+                     and not _is_nr_bin_key(res, k)}
             if rc == 0:
                 assert named == set(), res
             elif rc == 1:
@@ -153,6 +161,8 @@ class TestUniformRecord:
         # named-rotamer counts per rotameric_chi.  PRO is ring-constrained
         # (0 named); otherwise named rotamers cover only the first 2 chi,
         # so rc is capped at 2 and the terminal non-rotameric chi is excluded.
+        # ``<RES>_nr<i>`` non-rotameric-bin entries are separate from named
+        # (g-/g+/t) rotamers and excluded from this count.
         labels = ["g-", "g+", "t"]
         for res in M.AAS:
             if res == "PRO":
@@ -160,7 +170,9 @@ class TestUniformRecord:
             else:
                 rc = len(M.SIDECHAIN_CHI[res]) - (1 if res in M.SIDECHAIN_NON_ROTAMERIC_BINS else 0)
                 rc = min(2, rc)
-            named = {k for k in LIB if k.startswith(res + "_") and k != f"{res}_canonical"}
+            named = {k for k in LIB if k.startswith(res + "_")
+                     and k != f"{res}_canonical"
+                     and not _is_nr_bin_key(res, k)}
             if rc == 0:
                 assert named == set(), res
             elif rc == 1:
@@ -171,14 +183,17 @@ class TestUniformRecord:
         for res in M.AAS:
             for quad, rec in LIB[f"{res}_canonical"].items():
                 assert M.SIDECHAIN_IC_DIHEDRAL[res][quad]["mean"] == rec["mean"], (res, quad)
-        # canonical source is rosetta_params_408; named source is dunbrack_2010
+        # source: canonical -> rosetta_params_408; named (g-/g+/t) ->
+        # dunbrack_2010; non-rotameric bins -> dunbrack_2010_uniform_30deg_bin
         for key, quad_map in LIB.items():
             if key.endswith("_canonical"):
-                for rec in quad_map.values():
-                    assert rec["source"] == "rosetta_params_408", key
+                expect_src = "rosetta_params_408"
+            elif _is_nr_bin_key(key.split("_")[0], key):
+                expect_src = "dunbrack_2010_uniform_30deg_bin"
             else:
-                for rec in quad_map.values():
-                    assert rec["source"] == "dunbrack_2010", key
+                expect_src = "dunbrack_2010"
+            for rec in quad_map.values():
+                assert rec["source"] == expect_src, (key, rec["source"])
 
     def test_sidechain_non_rotameric_bins(self):
         B = M.SIDECHAIN_NON_ROTAMERIC_BINS
@@ -188,12 +203,29 @@ class TestUniformRecord:
             assert spec["bins"] == expect[res], (res, spec)
             assert spec["chi_quad"] in M.SIDECHAIN_CHI[res], (res, spec)
             assert spec["chi_quad"] == M.SIDECHAIN_CHI[res][-1], (res, spec)  # terminal chi
-        # terminal chi excluded from named rotamers
+        # terminal chi excluded from named (g-/g+/t) rotamers
         for res in expect:
             last = M.SIDECHAIN_CHI[res][-1]
             for key, quad_map in M.SIDECHAIN_ROTAMER_LIB.items():
-                if key.startswith(res + "_") and not key.endswith("_canonical"):
+                if key.startswith(res + "_") and not key.endswith("_canonical") \
+                   and not _is_nr_bin_key(res, key):
                     assert last not in quad_map, (res, key)
+        # non-rotameric bins: exactly ``bins`` nr entries per residue, bin
+        # centers at NON_ROTAMERIC_BIN_WIDTH*(i-0.5) = 15,45,75,... covering
+        # the full period (bins*30 deg), each carrying only the terminal chi.
+        for res, spec in B.items():
+            nbin = spec["bins"]
+            nq = spec["chi_quad"]
+            nr = [k for k in M.SIDECHAIN_ROTAMER_LIB if _is_nr_bin_key(res, k)]
+            assert len(nr) == nbin, (res, len(nr))
+            assert nr == [f"{res}_nr{i}" for i in range(1, nbin + 1)], res
+            for i in range(1, nbin + 1):
+                key = f"{res}_nr{i}"
+                quad_map = M.SIDECHAIN_ROTAMER_LIB[key]
+                assert set(quad_map) == {nq}, (key, set(quad_map))
+                rec = quad_map[nq]
+                assert rec["mean"] == M.NON_ROTAMERIC_BIN_WIDTH * (i - 0.5), (key, rec["mean"])
+                assert rec["source"] == "dunbrack_2010_uniform_30deg_bin", (key, rec["source"])
 
     def test_atom_radius(self):
         for elm, rec in M.ATOM_RADIUS.items():

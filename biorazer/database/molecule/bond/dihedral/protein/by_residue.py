@@ -31,12 +31,16 @@
   ``<RES>_canonical``、``<RES>_g-``、``<RES>_g+``、``<RES>_t`` (2 轴残基为
   ``<RES>_<a>_<b>``) 映射到 {chi_quad: {mean,std,lb,up,source}}。
   ``canonical`` 等于 SIDECHAIN_IC_DIHEDRAL 模板几何 (覆盖 0-deg 状态)。
-  命名 rotamer 用 Dunbrack bin 中心; 非 rotameric 末端 chi 只在
-  ``canonical`` 中出现。完整骨架依赖数值表未内嵌。
+  命名 rotamer 用 Dunbrack bin 中心。非 rotameric 末端 chi 除 ``canonical``
+  外, 另有 ``<RES>_nr<i>`` 条目: 用 ``NON_ROTAMERIC_BIN_WIDTH`` (30 deg)
+  将完整周期 (180 或 360 deg) 均匀离散的 ``bins`` 个 bin, 中心在 bin 中点
+  (15/45/75/...)。这些是均匀骨架 (source ``dunbrack_2010_uniform_30deg_bin``),
+  非 Dunbrack 数据拟合均值。完整骨架依赖数值表未内嵌。
 * ``SIDECHAIN_NON_ROTAMERIC_BINS`` -- per-residue 非 rotameric 末端 chi
   (sp3-sp2/芳香) 细 bin 规范: chi 四元组 + 30 deg bin 数 (ASN/GLN/HIS/TRP
-  = 12, ASP/GLU/PHE/TYR = 6)。bin 数值 (中点均值) 尚未内嵌 (完整 Dunbrack
-  数据集许可待定)。
+  = 12, ASP/GLU/PHE/TYR = 6)。这些 bin 的**中心位置**由
+  ``NON_ROTAMERIC_BIN_WIDTH`` 在 ``SIDECHAIN_ROTAMER_LIB`` 的 ``<RES>_nr<i>``
+  中生成; 数据拟合的均值/方差 (完整 Dunbrack 数据集许可待定) 尚未内嵌。
 
 所有角度单位 **度 (degree)**。数值记录统一为 ``{mean, std, lb, up,
 source}``; 查不到 spread 的字段为 ``np.nan`` (Rosetta ICOOR 只给理想点值)。
@@ -220,14 +224,16 @@ NON_ROTAMERIC_BIN_WIDTH = 30.0
 
 SIDECHAIN_DIHE_REFS = {
     "rosetta_params_408": "Rosetta 408 ... l-caa/*.params (ICOOR_INTERNAL 规范残基理想几何)",
-    "dunbrack_2010": "Shapovalov MV, Dunbrack RL Jr. A smoothed backbone-dependent rotamer library. Structure 19:844-858, 2011."
+    "dunbrack_2010": "Shapovalov MV, Dunbrack RL Jr. A smoothed backbone-dependent rotamer library. Structure 19:844-858, 2011.",
+    "dunbrack_2010_uniform_30deg_bin": "均匀 30-deg 离散骨架 (bin 中心在 bin 中点, 15/45/75/...), 由 NON_ROTAMERIC_BIN_WIDTH 生成, 兼容 Rosetta backbone-independent bin; 非 Dunbrack 数据拟合均值。"
 }
 
 #: 非 rotameric 末端 chi (sp2/芳香末端) 的细 bin 规范: chi 四元组 + 30 deg
 #: bin 数 (SCWRL 兼容)。ASN/GLN/HIS/TRP = 12, ASP/GLU/PHE/TYR = 6。这些
 #: 末端 chi 不是 g-/g+/t 离散 rotamer, 而是宽而对称性差的连续分布, 用
-#: NON_ROTAMERIC_BIN_WIDTH 的细 bin 离散化。bin 数值 (中点均值) 尚未内嵌
-#: (完整 Dunbrack 数据集许可待定), 仅记录 quad + bin 数 + 宽度。
+#: NON_ROTAMERIC_BIN_WIDTH 的细 bin 离散化。bin 的**中心位置**在
+#: ``SIDECHAIN_ROTAMER_LIB`` 的 ``<RES>_nr<i>`` 条目中 (均匀 30-deg 骨架);
+#: 数据拟合的均值/方差 (完整 Dunbrack 数据集许可待定) 尚未内嵌。
 SIDECHAIN_NON_ROTAMERIC_BINS = {
     'ASN': {'chi_quad': ('CA', 'CB', 'CG', 'OD1'), 'bins': 12},
     'ASP': {'chi_quad': ('CA', 'CB', 'CG', 'OD1'), 'bins': 6},
@@ -247,8 +253,19 @@ def _build_rotamer_lib():
     ``<RES>_t`` (and ``<RES>_<a>_<b>`` for 2-axis residues) map to
     {chi_quad: {mean, std, lb, up, source}}.  ``canonical`` equals the
     SIDECHAIN_IC_DIHEDRAL template geometry (covers the 0-deg state);
-    named rotamers use Dunbrack bin centers.  Non-rotameric terminal chi
-    (members of SIDECHAIN_NON_ROTAMERIC_BINS) appear only in ``canonical``.
+    named rotamers use Dunbrack bin centers.
+
+    Non-rotameric terminal chi (members of SIDECHAIN_NON_ROTAMERIC_BINS,
+    e.g. the sp2 terminal chi of ASN/ASP/GLN/GLU/PHE/HIS/TRP/TYR) appear
+    in ``canonical`` AND as ``<RES>_nr<i>`` entries: ``bins`` uniform
+    NON_ROTAMERIC_BIN_WIDTH (30 deg) bins covering the full period
+    (bins*30 = 180 deg for the 6-bin residues, 360 deg for the 12-bin
+    residues).  bin centers sit at the bin midpoint, starting at
+    width/2 = 15 deg (15, 45, 75, ...), matching Rosetta's
+    backbone-independent 30-deg discretisation.  These centers are a
+    uniform scaffold, NOT the data-fitted means of the full Dunbrack
+    tables (those are not embedded); hence their source is
+    ``dunbrack_2010_uniform_30deg_bin``.
 
     Named rotamers only cover the first 2 chi (chi1 / chi1 x chi2); chi3+
     stay canonical.  PRO is ring-constrained (its chi cannot rotate into
@@ -258,6 +275,8 @@ def _build_rotamer_lib():
     centers = {"g-": -60.0, "g+": 60.0, "t": 180.0}
     #: 环约束残基: chi 在环内, 不构成可旋转 rotamer (只有 canonical)。
     RING_CONSTRAINED = {"PRO"}
+    #: 均匀 30-deg 非 rotameric bin 的 source 标签 (均匀骨架, 非 Dunbrack 拟合均值)。
+    NR_BIN_SOURCE = "dunbrack_2010_uniform_30deg_bin"
     lib = {}
     for res in AAS:
         chis = SIDECHAIN_CHI[res]
@@ -276,8 +295,8 @@ def _build_rotamer_lib():
         rc = len(chis) - (1 if res in SIDECHAIN_NON_ROTAMERIC_BINS else 0)
         rc = min(2, rc)
         if rc == 0:
-            continue  # no chi to rotate (ALA/GLY)
-        if rc == 1:
+            pass  # no rotameric chi to rotate (ALA/GLY)
+        elif rc == 1:
             lib[f"{res}_g-"] = {chis[0]: rec(centers["g-"], "dunbrack_2010")}
             lib[f"{res}_g+"] = {chis[0]: rec(centers["g+"], "dunbrack_2010")}
             lib[f"{res}_t"]  = {chis[0]: rec(centers["t"],  "dunbrack_2010")}
@@ -288,21 +307,35 @@ def _build_rotamer_lib():
                         chis[0]: rec(centers[a], "dunbrack_2010"),
                         chis[1]: rec(centers[b], "dunbrack_2010"),
                     }
+        # non-rotameric terminal chi: bins uniform 30-deg bins over the
+        # full period.  The terminal chi is the last entry of chis.
+        if res in SIDECHAIN_NON_ROTAMERIC_BINS:
+            spec = SIDECHAIN_NON_ROTAMERIC_BINS[res]
+            nbin = spec["bins"]
+            nq = spec["chi_quad"]
+            for i in range(1, nbin + 1):
+                center = NON_ROTAMERIC_BIN_WIDTH * (i - 0.5)
+                lib[f"{res}_nr{i}"] = {nq: rec(center, NR_BIN_SOURCE)}
     return lib
 
 #: 每种残基的逐残基 rotamer 库: {chi_quad: {mean, std, lb, up, source}}。
 #: ``canonical`` 是头等 rotamer (quad->mean == SIDECHAIN_IC_DIHEDRAL 模板值,
 #: 覆盖 mean=0 状态)。命名 rotamer (g-/g+/t) 用 Dunbrack bin 中心, 只覆盖
-#: 前导可 rotameric chi (chi1 / chi1+chi2); 非 rotameric 末端 chi 只在
-#: ``canonical`` 中出现。完整骨架依赖数值表未内嵌。
+#: 前导可 rotameric chi (chi1 / chi1+chi2)。非 rotameric 末端 chi 除
+#: ``canonical`` 外, 还有 ``<RES>_nr<i>`` 条目 (i=1..bins): 用
+#: NON_ROTAMERIC_BIN_WIDTH 均匀离散完整周期的 bin, 中心在 bin 中点
+#: (15/45/75/...), 为均匀骨架 (非 Dunbrack 拟合均值)。完整骨架依赖数值表
+#: 未内嵌。
 #:
 #: 键形: 单 chi 残基 -> ``<RES>_{canonical,g-,g+,t}``; 双 chi 残基 ->
-#: ``<RES>_{g-,g+,t}_{g-,g+,t}`` (仅 chi1 x chi2)。值 dict 的键是 chi
-#: 扭转角四元组 (原子名), 值各字段含义:
+#: ``<RES>_{g-,g+,t}_{g-,g+,t}`` (仅 chi1 x chi2); 非 rotameric 末端 chi ->
+#: ``<RES>_nr1..<RES>_nr{bins}``。值 dict 的键是 chi 扭转角四元组 (原子名),
+#: 值各字段含义:
 #:   ``mean``   -- bin 中心二面角 (度)
 #:   ``std``    -- 标准差 (未内嵌时为 np.nan)
 #:   ``lb``/``up`` -- bin 下/上界 (未内嵌时为 np.nan)
-#:   ``source`` -- 数据来源 ("rosetta_params_408" / "dunbrack_2010")
+#:   ``source`` -- 数据来源 ("rosetta_params_408" / "dunbrack_2010" /
+#:                 "dunbrack_2010_uniform_30deg_bin")
 #:
 #: 示例 (真实内容):
 #:   >>> SIDECHAIN_ROTAMER_LIB['VAL_t']          # 单 chi, t (trans)
@@ -314,4 +347,8 @@ def _build_rotamer_lib():
 #:    ('CA', 'CB', 'CG', 'CD1'): {'mean': -60.0, ...}}
 #:   >>> SIDECHAIN_ROTAMER_LIB['SER_canonical']  # canonical == IC 模板几何
 #:   {('N', 'CA', 'CB', 'OG'): {'mean': -0.0, 'source': 'rosetta_params_408', ...}}
+#:   >>> SIDECHAIN_ROTAMER_LIB['ASP_nr1']        # 非 rotameric chi2 首 bin
+#:   {('CA', 'CB', 'CG', 'OD1'): {'mean': 15.0, 'std': nan,
+#:                                'lb': nan, 'up': nan,
+#:                                'source': 'dunbrack_2010_uniform_30deg_bin'}}
 SIDECHAIN_ROTAMER_LIB = _build_rotamer_lib()

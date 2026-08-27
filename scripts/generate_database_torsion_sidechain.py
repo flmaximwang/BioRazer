@@ -132,7 +132,9 @@ def main():
     a('')
     a('#: 非 rotameric 末端 chi (sp2/芳香末端) 的细 bin 规范: chi 四元组 + 30 deg')
     a('#: bin 数 (SCWRL 兼容)。这些末端 chi 不是 g-/g+/t 离散 rotamer。')
-    a('#: bin 数值 (中点均值) 尚未内嵌 (完整 Dunbrack 数据集许可待定)。')
+    a('#: bin 的**中心位置**由 NON_ROTAMERIC_BIN_WIDTH 在 SIDECHAIN_ROTAMER_LIB')
+    a('#: 的 <RES>_nr<i> 条目中生成 (均匀 30-deg 骨架); 数据拟合的均值/方差')
+    a('#: (完整 Dunbrack 数据集许可待定) 尚未内嵌。')
     a('SIDECHAIN_NON_ROTAMERIC_BINS = {')
     for aa in NON_ROTAMERIC:
         _, chi = parse(aa)
