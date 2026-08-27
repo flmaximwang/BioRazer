@@ -232,6 +232,13 @@ OMEGA_CIS = {"mean": 0.0, "std": 6.0, "lb": -6.0, "up": 6.0, "source": "stewart_
 #: * ``psi``   = (N_i, CA_i, C_i, N_{i+1})       —— 绕 CA-C 键
 #: * ``omega`` = (CA_i, C_i, N_{i+1}, CA_{i+1})   —— 绕 C-N 肽键
 #: 昵称 -> 官方四原子组。
+#:
+#: 注意: 羰基 ``O`` 分支的二面角 ``(N, CA, C, O)`` **不是** 固定的 180°。
+#: 反式肽平面 (omega = 180°) 使 O 与下一个残基的酰胺 N 在 C-N 键两侧
+#: 反式 (anti) 排列, 因此 ``dihedral(N, CA, C, O) = psi - 180``, 其中
+#: ``psi = dihedral(N, CA, C, N_{i+1})`` 是该残基自己的 psi —— 随二级结构
+#: 而变 (helix psi≈-45 -> O≈135°; strand psi≈+130 -> O≈-50°)。真正的
+#: 180° 恒量是肽平面二面角 ``omega = (CA, C, N, CA)``。
 ALIAS_QUAD = {
     "phi":   ("C", "N", "CA", "C"),
     "psi":   ("N", "CA", "C", "N"),

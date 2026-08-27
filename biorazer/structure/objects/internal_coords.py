@@ -525,7 +525,9 @@ class InternalCoord:
           ``(CA_i, C_i, N_{i+1}, CA_{i+1})``, ``(C_i, N_{i+1}, CA_{i+1}, C_{i+1})``
           and the per-residue carbonyl branch ``(N, CA, C, O)`` -- the exact
           quads of :data:`~biorazer.database.molecule.icoor.protein.topology.BACKBONE_IC_PATH`
-          (``"peptide"`` / ``"intra"`` groups).
+          (``"peptide"`` / ``"intra"`` groups).  The carbonyl ``O`` branch is
+          recorded on the trans peptide plane: its dihedral equals
+          ``psi - 180`` of the residue (O anti to the next residue's amide N).
         * **Side-chain pass** (per residue): each standard amino acid's side
           chain is grown off the already-placed backbone using its per-residue
           grow-path table ``IC_PATH`` (chi rotamers; see
@@ -675,10 +677,18 @@ class InternalCoord:
                 fill_anchor_geometry()
 
                 # carbonyl O (and C-terminal OXT) as branches off C --
-                # the "intra" backbone grow quads
+                # the "intra" backbone grow quads.  The carbonyl-O branch is
+                # recorded *after* the peptide link so its dihedral can be
+                # expressed on the trans peptide plane: O is anti to the next
+                # residue's N across the C-N bond, so
+                # dihedral(N, CA, C, O) = psi - 180
+                # with psi = dihedral(N, CA, C, N_{i+1}) of this residue.
+                # (For a terminal residue with no next N a trans plane is
+                # assumed, psi = 180 -> O dihedral 0.)
+                o_quads = []
                 for spec in BACKBONE_IC_PATH["intra"]:
                     if all(nm in res for nm in spec):
-                        record(tuple(res[nm] for nm in spec))
+                        o_quads.append(tuple(res[nm] for nm in spec))
 
                 # peptide link to the next residue in the same chain; only
                 # connect when the C_i - N_{i+1} distance is chemically
@@ -705,6 +715,26 @@ class InternalCoord:
 
                             for spec in BACKBONE_IC_PATH["peptide"]:
                                 record(tuple(_bb(nm) for nm in spec))
+
+                # carbonyl branch quads, recorded on the trans peptide plane
+                # (the peptide-link block above ran first, so the psi quad
+                # (N, CA, C, N_{i+1}) is already in ic.dihedra when this
+                # residue has a linked next residue).
+                psi = ic.dihedra.get(
+                    (res["N"], res["CA"], res["C"],
+                     residues[ckeys[r_i + 1]]["atoms"]["N"])
+                    if r_i + 1 < len(ckeys)
+                    and "N" in residues[ckeys[r_i + 1]]["atoms"]
+                    else None)
+                if psi is None:
+                    psi = 180.0          # terminal / broken chain: trans plane
+                for quad in o_quads:
+                    i, j, k, l = quad
+                    record(quad)
+                    if l in res and res["O"] == l:
+                        # O is anti to the next residue's N across the C-N
+                        # bond: dihedral(N, CA, C, O) = psi - 180
+                        ic.dihedra[quad] = (psi - 180.0) % 360.0
 
                 # side chain: per-residue grow path (chi rotamers)
                 for spec in IC_PATH.get(name, ()):

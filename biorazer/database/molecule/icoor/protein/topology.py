@@ -71,6 +71,11 @@ MAINCHAIN_ATOMS = frozenset(("N", "CA", "C", "O", "OXT"))
 #:   analytically, not grown).  ``OXT`` is present only in C-terminal
 #:   residues and in explicit-H / capped structures; the bond tables carry
 #:   no ``OXT`` geometry, so template builders record just the ``O`` quad.
+#:   The ``O`` quad's dihedral is **not** a fixed 180: a trans peptide plane
+#:   places O anti to the next residue's amide N across the C-N bond, so
+#:   ``dihedral(N, CA, C, O) = psi - 180`` with ``psi`` the carbonyl
+#:   residue's own psi (``dihedral(N, CA, C, N_{i+1})``).  For a terminal
+#:   residue a trans plane is assumed (``psi = 180`` -> ``O`` dihedral 0).
 #: * ``"peptide"`` -- cross-residue quads linking residue ``i`` to ``i+1``,
 #:   with atom names subscripted ``_i`` (current residue) / ``_{i+1}``
 #:   (next residue).  These are the main-chain pass of
