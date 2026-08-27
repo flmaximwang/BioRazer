@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-"""Emit the sidechain-torsion dicts (SIDECHAIN_CHI / _SIDECHAIN_IC_DIHEDRAL
+"""Emit the sidechain-torsion dicts (SIDECHAIN_CHI / SC_NON_CHI_DIHEDRAL
 / ROTAMER_BIN / NON_ROTAMERIC_BIN_WIDTH / SIDECHAIN_NON_ROTAMERIC_BINS) for
 biorazer/database/molecule/bond/dihedral/protein/by_residue.py from Rosetta
 fa_standard params.
@@ -76,6 +76,39 @@ def build(aa):
     return coord
 
 
+def _rotameric_chi_quads(aa):
+    """The chi quads the rotamer build regenerates (stripped from
+    SC_NON_CHI_DIHEDRAL): the leading rotatable chi1/chi2 for non-ring
+    residues.  PRO is ring-constrained -> none.  ALA/GLY -> none."""
+    from biorazer.database.molecule.bond.dihedral.protein import (
+        SIDECHAIN_CHI, SIDECHAIN_NON_ROTAMERIC_BINS)
+    if aa in ("PRO", "ALA", "GLY"):
+        return set()
+    chis = SIDECHAIN_CHI[aa]
+    nnon = 1 if aa in SIDECHAIN_NON_ROTAMERIC_BINS else 0
+    rc = min(2, len(chis) - nnon)
+    return set(chis[:rc])
+
+
+def _emit_sidechain_table(a, emit_all):
+    """Emit the side-chain dihedral table.  With emit_all=False
+    (SC_NON_CHI_DIHEDRAL) the rotameric chi quads are skipped (the build
+    regenerates them); PRO's ring-pucker chi and the terminal non-rotameric
+    chi are kept."""
+    for aa in AAS:
+        coord = build(aa)
+        a('    %r: {' % aa)
+        for quad in IC_PATH[aa]:
+            if all(n in coord for n in quad):
+                if not emit_all and quad in _rotameric_chi_quads(aa):
+                    continue
+                a('        %r: {"mean": %.2f, "std": np.nan, "lb": np.nan, '
+                  '"up": np.nan, "source": "rosetta_params_408"},'
+                  % (quad, _dihedral(*(coord[n] for n in quad))))
+        a('    },' )
+    a('}')
+
+
 def main():
     out = []
     a = out.append
@@ -97,22 +130,16 @@ def main():
     a('}')
     a('')
     a('')
-    a('#: **私有** 的规范 IC-frame 理想二面角 (度), keyed by 生长四元组原子名')
-    a('#: (i,j,k,l), 即官方二面角定义 (如 chi1=(N,CA,CB,CG))。')
-    a('#: GLY 侧链为空。每条为 {mean, std, lb, up, source}; std/lb/up 为 np.nan')
-    a('#: (Rosetta ICOOR 只给理想点值)。只作为 SIDECHAIN_ROTAMER_LIB 的')
-    a('#: canonical 基座被内部消费 (公开入口是 <RES>_canonical)。')
-    a('_SIDECHAIN_IC_DIHEDRAL = {')
-    for aa in AAS:
-        coord = build(aa)
-        a('    %r: {' % aa)
-        for quad in IC_PATH[aa]:
-            if all(n in coord for n in quad):
-                a('        %r: {"mean": %.2f, "std": np.nan, "lb": np.nan, '
-                  '"up": np.nan, "source": "rosetta_params_408"},'
-                  % (quad, _dihedral(*(coord[n] for n in quad))))
-        a('    },' )
-    a('}')
+    a('#: **私有** 的非 rotameric 侧链二面角表 (度), keyed by 生长四元组原子名')
+    a('#: (i,j,k,l)。只保留 build 不能从 rotamer 规则再生成的二面角: 所有非 chi')
+    a('#: 生长四元组 + PRO 的环约束 chi (ring-pucker, 30/-33.9, 无 rotamer) + 非')
+    a('#: rotameric 末端 chi (sp2 末端, 见 SIDECHAIN_NON_ROTAMERIC_BINS)。可 rotameric')
+    a('#: chi 已被剔除, 由 SIDECHAIN_ROTAMER_LIB 的构建函数生成 (canonical=0 / bin 中心)。')
+    a('#: 每条为 {mean, std, lb, up, source}; Rosetta ICOOR 只给理想点值,')
+    a('#: 故 std/lb/up = np.nan。作为 SIDECHAIN_ROTAMER_LIB 的基座被内部消费')
+    a('#: (公开入口是 <RES>_canonical)。键长/键角见 bond.length/angle.protein。')
+    a('SC_NON_CHI_DIHEDRAL = {')
+    _emit_sidechain_table(a, emit_all=False)
     a('')
     a('#: 标准 rotamer bin 中心 (理想化 chi 定义), 度。g-/t/g+ 命名与这些中心是')
     a('#: Dunbrack rotamer 库的通用归类; 完整骨架依赖数值表见模块 docstring 说明。')
