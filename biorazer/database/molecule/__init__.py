@@ -9,6 +9,10 @@ tables under one package so future molecule classes (nucleic acids, ligands,
 * :mod:`.bond`    -- covalent bond geometry: length / angle / dihedral.
 * :mod:`.icoor`   -- internal-coordinate reference data (grow-path topology
   and ideal per-residue templates for proteins).
+* :mod:`.rotamer` -- **readers for external** rotamer libraries (PyMOL's
+  bundled Dunbrack pickles, Rosetta's Shapovalov text libraries).  Those
+  libraries are large and variously licensed, so they are not vendored
+  here; the readers load them from the local installation.
 
 Within :mod:`.bond`, each geometry type splits into ``generic``
 (molecule-agnostic main tables) and ``protein`` (protein-residue-specific
@@ -27,6 +31,10 @@ per-module homes)::
         IC_PATH,                           # icoor.protein.topology
         BACKBONE_IC_PATH,                  # icoor.protein.topology
         ATOM_RADIUS,                       # atom.radius
+        read_pymol_dep,                    # rotamer.pymol (external readers)
+        read_shapovalov,                   # rotamer.rosetta
+        RotamerRecord,                     # rotamer (shared record types)
+        RotamerLibrary,
     )
 """
 
@@ -68,6 +76,32 @@ from .icoor.protein.topology import (  # noqa: F401
     BACKBONE_IC_PATH,
 )
 
+# external rotamer library readers (split by source)
+from .rotamer import (  # noqa: F401
+    RotamerRecord,
+    RotamerLibrary,
+    N_MAINCHAIN as ROTAMER_N_MAINCHAIN,
+    DEFAULT_BIN_GRID,
+)
+from .rotamer.rosetta import (  # noqa: F401
+    ROSETTA_ROTAMER_DIR,
+    DEFAULT_STEPDOWN,
+    read_rosetta_text,
+    read_shapovalov,
+    read_bbdep02,
+    default_bbdep02_path,
+    default_shapovalov_path,
+)
+from .rotamer.pymol import (  # noqa: F401
+    PYMOL_ROTAMER_DIR,
+    PYMOL_SC_BB_IND,
+    PYMOL_SC_BB_DEP,
+    PYMOL_SC_LIBRARY,
+    read_pymol_ind,
+    read_pymol_dep,
+    read_pymol_library,
+)
+
 __all__ = [
     # bond length
     "AMINO_ACID_BOND_LENGTH", "AMINO_ACID_BOND_LENGTH_BY_RESIDUE",
@@ -86,4 +120,13 @@ __all__ = [
     "ATOM_RADIUS", "vdw_dict", "vdw_radii",
     # icoor topology
     "IC_PATH", "MAINCHAIN_ATOMS", "BACKBONE_IC_PATH",
+    # external rotamer readers -- shared record types
+    "RotamerRecord", "RotamerLibrary", "ROTAMER_N_MAINCHAIN", "DEFAULT_BIN_GRID",
+    # external rotamer readers -- Rosetta / Dunbrack
+    "ROSETTA_ROTAMER_DIR", "DEFAULT_STEPDOWN",
+    "read_rosetta_text", "read_shapovalov", "read_bbdep02",
+    "default_bbdep02_path", "default_shapovalov_path",
+    # external rotamer readers -- PyMOL
+    "PYMOL_ROTAMER_DIR", "PYMOL_SC_BB_IND", "PYMOL_SC_BB_DEP", "PYMOL_SC_LIBRARY",
+    "read_pymol_ind", "read_pymol_dep", "read_pymol_library",
 ]

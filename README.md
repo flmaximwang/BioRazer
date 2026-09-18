@@ -8,6 +8,7 @@ A Python package for analyzing various biological information, built from practi
 - **Multiple Sequence Alignment (MSA)** — Generate MSA via ColabFold MMseqs2 API, visualize coverage, analyze amino acid frequencies
 - **Structure analysis** — Static analysis (contacts, hydrogen bonds, surface selection), dynamic trajectory analysis (MD trajectory view, XVG/XPM plots)
 - **Database access** — Query AFDB, RCSB PDB, UniProt, Ensembl
+- **Rotamer libraries** — Read external side-chain rotamer databases: PyMOL's bundled Dunbrack pickles (`sc_bb_ind` / `sc_bb_dep`) and Rosetta's Dunbrack 2002 / Shapovalov 2010 text libraries
 - **Protein design** — Sequence design, library generation, single test entries
 
 ## Installation
@@ -84,6 +85,14 @@ Tests cover: FASTA parsing, sequence validation, A3M merging, and module constan
 ```
 biorazer/
 ├── access/         # External database APIs (AFDB, RCSB, UniProt, Ensembl)
+├── database/       # Reference data & external-library readers
+│   └── molecule/   #   per-molecule data
+│       ├── atom/       #     vdW radii, charges
+│       ├── bond/       #     bond length / angle / dihedral
+│       ├── icoor/      #     internal-coordinate topology & templates
+│       └── rotamer/    #     external rotamer readers, split by source
+│           ├── rosetta/    #   Dunbrack 2002 / Shapovalov 2010 text libraries
+│           └── pymol/      #   PyMOL's bundled Dunbrack pickles
 ├── design/         # Protein design tools
 ├── sequence/       # Sequence analysis
 │   ├── nucleotide/
