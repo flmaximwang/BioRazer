@@ -54,7 +54,7 @@ from biorazer.structure.objects.external import AtomArray
 def _place(B, C, D, blen, bang, dih_deg):
     """Place a new atom A given already-placed parents B, C, D.
 
-    The frame is built **consistently** with :func:`_dihedral`, so that
+    The frame is built **consistently** with :func:`dihedral`, so that
     ``dihedral(B, C, D, A) == dih_deg`` exactly.  Frame vectors (k-centered,
     ``k == D``, i.e. B, C, D are the parent quads' i, j, k):
 
@@ -72,7 +72,7 @@ def _place(B, C, D, blen, bang, dih_deg):
         Bond angle at D between A and D and C (**degree**).
     dih_deg : float
         Dihedral angle ``(B, C, D, A)`` (**degree**), same convention as
-        :func:`_dihedral` returns.
+        :func:`dihedral` returns.
 
     Returns
     -------
@@ -98,8 +98,18 @@ def _place(B, C, D, blen, bang, dih_deg):
     return D + blen * base
 
 
-def _dihedral(p0, p1, p2, p3):
-    """Signed dihedral (degree) of 4 points p0..p3 (~N-CA-C-N)."""
+def dihedral(p0, p1, p2, p3):
+    """Signed dihedral (degree) of 4 points p0..p3 (~N-CA-C-N).
+
+    This is the repository's **single source of truth** for the sign
+    convention of a dihedral angle: the returned value is the IUPAC-signed
+    torsion about the ``p1-p2`` axis (the sign Dunbrack / Rosetta chi values
+    use).  Every other module must call this function rather than carrying a
+    private copy of the formula.
+
+    It is exactly the angle :func:`_place` consumes/produces, i.e.
+    ``dihedral(B, C, D, _place(B, C, D, ...))`` round-trips.
+    """
     b0 = -1.0 * (p1 - p0)
     b1 = p2 - p1
     b2 = p3 - p2
@@ -109,6 +119,10 @@ def _dihedral(p0, p1, p2, p3):
     x = np.dot(v, w)
     y = np.dot(np.cross(b1, v), w)
     return float(np.degrees(np.arctan2(y, x)))
+
+
+#: Backwards-compatible alias (the function used to be private).
+_dihedral = dihedral
 
 
 class InternalCoordAtom:
@@ -601,7 +615,7 @@ class InternalCoord:
             ic.bond_angles.setdefault((j, k, l),
                                       float(np.degrees(np.arccos(
                                           np.clip(cos, -1, 1)))))
-            ic.dihedra[quad] = _dihedral(c0, c1, c2, c3)
+            ic.dihedra[quad] = dihedral(c0, c1, c2, c3)
 
         if quads is not None:
             # generic graph: explicit quads (legacy behaviour)
