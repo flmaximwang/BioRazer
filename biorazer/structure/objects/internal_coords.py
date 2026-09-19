@@ -539,9 +539,15 @@ class InternalCoord:
           ``(CA_i, C_i, N_{i+1}, CA_{i+1})``, ``(C_i, N_{i+1}, CA_{i+1}, C_{i+1})``
           and the per-residue carbonyl branch ``(N, CA, C, O)`` -- the exact
           quads of :data:`~biorazer.database.molecule.icoor.protein.topology.BACKBONE_IC_PATH`
-          (``"peptide"`` / ``"intra"`` groups).  The carbonyl ``O`` branch is
-          recorded on the trans peptide plane: its dihedral equals
-          ``psi - 180`` of the residue (O anti to the next residue's amide N).
+          (``"peptide"`` / ``"intra"`` groups).  **Every** quad, the carbonyl
+          ``O`` branch included, stores the value **measured from the input**
+          (``record`` reads it straight off ``arr``), which is what makes
+          ``to_coords`` reproduce the input to ``~1e-14`` A.  The constraint the
+          measured ``O`` value satisfies in a real structure (sp2 coplanarity of
+          the carbonyl carbon -> ``dihedral(N, CA, C, O) = psi - 180``, see
+          :func:`~biorazer.database.molecule.icoor.protein.topology.carbonyl_o_dihedral`)
+          is therefore *not* applied here -- the **write** paths (template /
+          ``build_side_chain``) use it, because they have no ``O`` to read.
         * **Side-chain pass** (per residue): each standard amino acid's side
           chain is grown off the already-placed backbone using its per-residue
           grow-path table ``IC_PATH`` (chi rotamers; see
@@ -691,14 +697,8 @@ class InternalCoord:
                 fill_anchor_geometry()
 
                 # carbonyl O (and C-terminal OXT) as branches off C --
-                # the "intra" backbone grow quads.  The carbonyl-O branch is
-                # recorded *after* the peptide link so its dihedral can be
-                # expressed on the trans peptide plane: O is anti to the next
-                # residue's N across the C-N bond, so
-                # dihedral(N, CA, C, O) = psi - 180
-                # with psi = dihedral(N, CA, C, N_{i+1}) of this residue.
-                # (For a terminal residue with no next N a trans plane is
-                # assumed, psi = 180 -> O dihedral 0.)
+                # the "intra" backbone grow quads, collected here so they can be
+                # recorded with the rest of the backbone below.
                 o_quads = []
                 for spec in BACKBONE_IC_PATH["intra"]:
                     if all(nm in res for nm in spec):
@@ -730,25 +730,18 @@ class InternalCoord:
                             for spec in BACKBONE_IC_PATH["peptide"]:
                                 record(tuple(_bb(nm) for nm in spec))
 
-                # carbonyl branch quads, recorded on the trans peptide plane
-                # (the peptide-link block above ran first, so the psi quad
-                # (N, CA, C, N_{i+1}) is already in ic.dihedra when this
-                # residue has a linked next residue).
-                psi = ic.dihedra.get(
-                    (res["N"], res["CA"], res["C"],
-                     residues[ckeys[r_i + 1]]["atoms"]["N"])
-                    if r_i + 1 < len(ckeys)
-                    and "N" in residues[ckeys[r_i + 1]]["atoms"]
-                    else None)
-                if psi is None:
-                    psi = 180.0          # terminal / broken chain: trans plane
+                # carbonyl O (and C-terminal OXT) branch quads.  The read path
+                # records the **measured** value for every quad, the O one
+                # included: its job is to reproduce the input coordinates
+                # exactly (``to_coords`` round-trip ~1e-14 A), and a real O sits
+                # a few 0.01 A off the ideal peptide plane.  The constraint that
+                # measured value satisfies in a real structure -- sp2
+                # coplanarity of C, i.e. dihedral(N, CA, C, O) = psi - 180 -- is
+                # defined once in topology.carbonyl_o_dihedral and used by the
+                # *write* paths (template / build_side_chain), which have no O
+                # to read.
                 for quad in o_quads:
-                    i, j, k, l = quad
                     record(quad)
-                    if l in res and res["O"] == l:
-                        # O is anti to the next residue's N across the C-N
-                        # bond: dihedral(N, CA, C, O) = psi - 180
-                        ic.dihedra[quad] = (psi - 180.0) % 360.0
 
                 # side chain: per-residue grow path (chi rotamers)
                 for spec in IC_PATH.get(name, ()):

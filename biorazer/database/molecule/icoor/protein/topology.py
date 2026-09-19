@@ -99,6 +99,59 @@ BACKBONE_IC_PATH = {
     ),
 }
 
+
+def carbonyl_o_dihedral(psi: float) -> float:
+    """羰基 ``O`` 的放置二面角 ``(N, CA, C, O)`` —— 由羰基碳 C 的 sp2 共面性给出。
+
+    **单一定义处**: 模板构建 (:func:`~biorazer.database.molecule.icoor.protein.
+    template.build_template`)、真实结构读入 (:meth:`~biorazer.structure.objects.
+    internal_coords.InternalCoord.from_atomarray`) 与真实骨架上的重建
+    (:func:`~biorazer.structure.manipulation.mutation.build_side_chain`) 都调用
+    这里, 不要各自再写一份 ``- 180``。
+
+    推导 (为什么 ``- 180`` 与键角数值无关)
+    ─────────────────────────────────────
+    羰基碳 C 是 sp2 中心, 三个取代基 ``CA``/``O``/``N_{i+1}`` 共面; 而绕轴
+    ``CA-C`` 的这根轴**本身就在该平面内**, 所以 ``C->O`` 与 ``C->N_{i+1}`` 在
+    垂直于轴的平面里的投影必然共线; 又由 ``angle(O-C-N) = 360 - angle(CA-C-O)
+    - angle(CA-C-N)`` 知 O 与 ``N_{i+1}`` 分居 ``C->CA`` 射线两侧, 两个投影恰好
+    **反平行**。于是
+
+        dihedral(N, CA, C, O) = dihedral(N, CA, C, N_{i+1}) - 180 = psi - 180
+
+    只用到共面性, **不含任何键角数值** (键角取 130/100 或 150/80 结果一样)。
+    反过来: 这个二面角**不是**自由度, 它是 ``psi`` 的确定性函数 —— 真正自由的
+    是 ``psi`` (绕 ``CA-C`` 的旋转)。所以只要知道 ``N_{i+1}``, ``O`` 就被唯一
+    确定; ``psi`` 或所属二级结构类的均值只是"没有 ``N_{i+1}`` 时"的退路。
+
+    实测残差 (6VY1 链 A, n=120, 用仓库自己的 dihedral):
+    ``dihedral(N,CA,C,O) - (psi - 180)`` 均值 ``-0.50`` 度 / 最大 ``5.79`` 度 ——
+    这是真实结构的**出平面量**, 不是自由度: O 到 ``(CA, C, N_{i+1})`` 平面距离
+    均值 ``0.020`` A / 最大 ``0.108`` A, 而 ``asin(0.108 / 1.057) = 5.9`` 度,
+    两者自洽 (1.057 A = O 绕轴的半径 ``1.231 * sin(120.8)``)。C 上三键角之和
+    实为 ``360.0 - 0.02`` 度 (max 偏差 0.27 度), sp2 平面性成立。
+
+    Parameters
+    ----------
+    psi : float
+        该残基的 ``psi = (N_i, CA_i, C_i, N_{i+1})`` (**度**)。没有真实
+        ``N_{i+1}`` 时可传该残基所属二级结构类的均值 ``psi`` (近似)。
+
+    Returns
+    -------
+    float
+        ``(N, CA, C, O)`` 二面角 (**度**, 落在 ``[0, 360)``)。
+
+    Examples
+    --------
+    >>> carbonyl_o_dihedral(-45.0)          # alpha 螺旋 -> O 在 135 度
+    135.0
+    >>> carbonyl_o_dihedral(130.0)          # beta 折叠 -> O 在 -50 度
+    310.0
+    """
+    return (float(psi) - 180.0) % 360.0
+
+
 #: Side-chain grow-path per residue: ``{res_name: ((i, j, k, l), ...)}``,
 #: one ``(i, j, k, l)`` atom-name quad per side-chain heavy atom ``l``
 #: (atom ``k`` is its bonded parent).  Quads are in the **official dihedral

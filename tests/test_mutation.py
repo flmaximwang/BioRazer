@@ -7,7 +7,9 @@
   ``structure.objects.internal_coords``), 且与 :func:`_place` 严格互逆;
 * :func:`ss_from_phi_psi` 的粗判;
 * :func:`rotamer_candidates` 的概率降序与 (phi, psi) 箱;
-* :func:`build_side_chain` 的原子集合与 chi 回量;
+* :func:`build_side_chain` 的原子集合与 chi 回量, 以及羰基 ``O`` 的定位
+  (sp2 共面性: 真实 ``N_{i+1}`` (``next_n``) > ``psi`` > ``ss`` 类均值);
+* :func:`_backbone_neighbours` 的肽键判据 (号相邻**且** ``C-N`` 距离成立);
 * :func:`mutate` 的骨架不动、链作用域、各种非法输入。
 
 夹具不依赖任何外部结构文件 (另一个仓库的 ``*.cif`` 不进测试), 也不用被测代码
@@ -30,6 +32,7 @@ from biorazer.database.molecule.bond.length.protein import (
 )
 from biorazer.database.molecule.icoor.protein import template
 from biorazer.database.molecule.rotamer import pymol as PM
+from biorazer.structure.manipulation import mutation
 from biorazer.structure.manipulation.mutation import (
     build_side_chain,
     dihedral,
@@ -38,6 +41,7 @@ from biorazer.structure.manipulation.mutation import (
     ss_from_phi_psi,
 )
 from biorazer.structure.objects import internal_coords as _ic
+from biorazer.structure.selection.index.annotation import group_atoms_by_residue
 
 
 # --------------------------------------------------------------------------
@@ -118,6 +122,28 @@ def _ideal_chain(n_res, chain_id, phi=PHI, psi=PSI, omega=OMEGA,
     arr.ins_code = np.array([""] * len(atoms), dtype="U4")
     arr.hetero = np.array([False] * len(atoms))
     return arr
+
+
+def _next_n_from(bb, psi):
+    """在 ``bb`` 的 ``C`` 上按理想肽键几何放一个 ``N_{i+1}`` (绕 ``CA-C`` 到 ``psi``)。
+
+    用被测代码外部的原语 :func:`_place` + 数据库的键长/键角, 所以不循环依赖
+    ``build_side_chain``: 夹具给的是一个**真实存在**的下一个 N。
+    """
+    return _ic._place(bb["N"], bb["CA"], bb["C"], _mean(BLEN[("C", "N")]),
+                      _mean(BANG[("CA", "C", "N")]), psi)
+
+
+def _bb_dict(arr, chain, res_id):
+    """把某残基的 ``N/CA/C`` 取成 ``build_side_chain`` 要的字典。"""
+    m = (arr.chain_id == chain) & (arr.res_id == res_id)
+    return {str(n): np.asarray(arr.coord[m & (arr.atom_name == n)][0], float)
+            for n in ("N", "CA", "C")}
+
+
+def _xyz(arr, name):
+    """按原子名取坐标 (arr 只含一个残基时用)。"""
+    return np.asarray(arr.coord[[str(n) for n in arr.atom_name].index(name)], float)
 
 
 @pytest.fixture
@@ -316,6 +342,95 @@ class TestBuildSideChain:
     def test_too_many_chi_values_raises(self, backbone_31):
         with pytest.raises(ValueError):
             build_side_chain("HIS", backbone_31, chi=(-60, -60, -60))
+
+    # ---- 羰基 O: sp2 共面性, 三档信息 next_n > psi > ss 类均值 ----
+
+    def test_carbonyl_o_is_anti_to_the_real_next_n(self, backbone_31):
+        """(1) 给真实 ``N_{i+1}``: O 与它绕 ``CA-C`` 反平行, 且落在同一平面内。
+
+        sp2 共面性只保证"反平行 + 共面", 不含任何键角数值 —— 所以这里同时查
+        圆周关系 (差 180) 和出平面距离 (0)。角度容差用 ``CHI_TOL``、距离容差用
+        ``1e-6`` A: 都是 ``AtomArray`` 的 float32 存储精度下限 (见 ``CHI_TOL``
+        注释), 不是几何误差。
+        """
+        psi = -49.1
+        n_next = _next_n_from(backbone_31, psi)
+        aa = build_side_chain("ALA", backbone_31, ss="coil", next_n=n_next)
+        got = dihedral(_xyz(aa, "N"), _xyz(aa, "CA"), _xyz(aa, "C"), _xyz(aa, "O"))
+        assert _wrap(got - (psi - 180.0)) == pytest.approx(0.0, abs=CHI_TOL)
+        nrm = np.cross(_xyz(aa, "CA") - _xyz(aa, "C"),
+                       n_next - _xyz(aa, "C"))
+        oob = abs(np.dot(_xyz(aa, "O") - _xyz(aa, "C"),
+                         nrm / np.linalg.norm(nrm)))
+        assert oob < 1e-6, f"O 不在 (CA, C, N_next) 平面内: 出平面 {oob:.2e} A"
+
+    def test_next_n_overrides_the_ss_class(self, backbone_31):
+        """(2) ``ss="coil"`` (均值 psi = 0 -> O 180) 也要被真实 ``N_{i+1}`` 覆盖。"""
+        aa = build_side_chain("ALA", backbone_31, ss="coil",
+                              next_n=_next_n_from(backbone_31, -45.0))
+        got = dihedral(_xyz(aa, "N"), _xyz(aa, "CA"), _xyz(aa, "C"), _xyz(aa, "O"))
+        assert _wrap(got - 135.0) == pytest.approx(0.0, abs=CHI_TOL)
+
+    def test_explicit_psi_drives_the_carbonyl_o(self, backbone_31):
+        """(3) 没有 ``N_{i+1}`` 时 ``psi`` 直接用; 两者都没有才退回 ``ss`` 均值。"""
+        aa = build_side_chain("ALA", backbone_31, ss="coil", psi=-100.0)
+        got = dihedral(_xyz(aa, "N"), _xyz(aa, "CA"), _xyz(aa, "C"), _xyz(aa, "O"))
+        assert _wrap(got - 80.0) == pytest.approx(0.0, abs=CHI_TOL)
+        fallback = build_side_chain("ALA", backbone_31, ss="coil")
+        assert _wrap(dihedral(_xyz(fallback, "N"), _xyz(fallback, "CA"),
+                              _xyz(fallback, "C"), _xyz(fallback, "O"))
+                     - 180.0) == pytest.approx(0.0, abs=CHI_TOL)
+
+    def test_o_reproduces_the_chain_own_carbonyl(self):
+        """在夹具链上重建: 传真实 ``N_{i+1}`` 应复现夹具自己生长的那个 ``O``。"""
+        arr = _ideal_chain(4, "A")
+        bb = _bb_dict(arr, "A", 2)
+        n_next = np.asarray(arr.coord[(arr.chain_id == "A") & (arr.res_id == 3)
+                                      & (arr.atom_name == "N")][0], float)
+        aa = build_side_chain("ALA", bb, ss="coil", next_n=n_next)
+        o_fixture = np.asarray(arr.coord[(arr.chain_id == "A") & (arr.res_id == 2)
+                                         & (arr.atom_name == "O")][0], float)
+        assert np.allclose(_xyz(aa, "O"), o_fixture, atol=1e-4)
+
+    def test_next_n_that_is_not_the_peptide_partner_raises(self, backbone_31):
+        with pytest.raises(ValueError, match="peptide bond"):
+            build_side_chain("ALA", backbone_31,
+                             next_n=np.array([50.0, 50.0, 50.0]))
+
+    def test_next_n_wrong_shape_raises(self, backbone_31):
+        with pytest.raises(ValueError, match="3-vector"):
+            build_side_chain("ALA", backbone_31, next_n=np.zeros((2, 3)))
+
+
+# --------------------------------------------------------------------------
+# 5b. 肽键邻居判据 (号相邻但肽键不成 -> 必须判为"没有邻居")
+# --------------------------------------------------------------------------
+class TestPeptideNeighbours:
+    """``_backbone_neighbours`` 除了 ``res_id`` 相邻, 还要量 ``C-N`` 距离。
+
+    这条判据不严的话, ``next_n`` 会把一个假肽平面直接喂给羰基 ``O`` 的定位
+    (假 ``psi`` -> O 偏几 A), 比退回 ``ss`` 均值更糟。
+    """
+
+    @staticmethod
+    def _broken_gap():
+        """3 个 ALA 的链, 中间那个残基整体平移 20 A (号仍相邻)。"""
+        arr = _ideal_chain(3, "A")
+        arr.coord[arr.res_id == 2] += np.array([20.0, 0.0, 0.0])
+        return arr
+
+    def test_intact_chain_gives_both_neighbours(self):
+        arr = _ideal_chain(3, "A")
+        groups = group_atoms_by_residue(arr)
+        prev_c, next_n = mutation._backbone_neighbours(arr, groups, ("A", 2, ""))
+        assert prev_c is not None and next_n is not None
+
+    def test_broken_peptide_bond_gives_none(self):
+        arr = self._broken_gap()
+        groups = group_atoms_by_residue(arr)
+        assert mutation._backbone_neighbours(arr, groups, ("A", 2, "")) == (None, None)
+        assert mutation._backbone_neighbours(arr, groups, ("A", 1, ""))[1] is None
+        assert mutation._backbone_neighbours(arr, groups, ("A", 3, ""))[0] is None
 
 
 # --------------------------------------------------------------------------

@@ -34,6 +34,12 @@ snapshot**:
   The carbonyl ``O`` branch dihedral is placed on the **trans peptide plane**:
   O is anti to the next residue's amide N across the C-N bond, i.e.
   ``dihedral(N, CA, C, O) = psi - 180`` (``psi`` = the residue's ``psi`` attr).
+  That ``- 180`` is a consequence of the **sp2 coplanarity of the carbonyl
+  carbon** alone -- not of any bond-angle value (see
+  :func:`~biorazer.database.molecule.icoor.protein.topology.carbonyl_o_dihedral`),
+  so ``O`` is *not* a free torsion.  A template has no next residue, hence the
+  fallback to the ss-class mean ``psi``; callers holding the real ``N_{i+1}``
+  (or the residue's real ``psi``) must override the quad.
 * side chain: built to a chosen **rotamer**; the rotatable chi torsions are set
   exactly (subtree rigid rotation), the rest ideal.
 
@@ -62,7 +68,11 @@ from __future__ import annotations
 import numpy as np
 
 from biorazer.structure.objects.internal_coords import InternalCoord, InternalCoordAtom
-from biorazer.database.molecule.icoor.protein.topology import BACKBONE_IC_PATH, IC_PATH
+from biorazer.database.molecule.icoor.protein.topology import (
+    BACKBONE_IC_PATH,
+    IC_PATH,
+    carbonyl_o_dihedral,
+)
 from biorazer.database.molecule.bond.length.protein import AMINO_ACID_SIDECHAIN_BOND, AMINO_ACID_BOND_LENGTH
 from biorazer.database.molecule.bond.angle.generic import AMINO_ACID_BACKBONE_BOND_ANGLE
 from biorazer.database.molecule.bond.angle.protein import AMINO_ACID_BOND_ANGLE
@@ -314,9 +324,13 @@ def build_template(resn, ss, rotamer="canonical"):
     # the "intra" backbone grow quads.  The carbonyl O is *anti* to the
     # next residue's amide N across the C-N peptide bond (trans peptide
     # plane): dihedral(N, CA, C, O) = psi - 180 with
-    # psi = dihedral(N, CA, C, N_{i+1}).  A template has no next residue,
-    # so the plane is anchored to the residue's own psi mean instead of a
-    # fixed 180 (the residue's phi/psi attrs are set below).
+    # psi = dihedral(N, CA, C, N_{i+1}).  That -180 comes from the sp2
+    # coplanarity of C (the axis CA-C lies *in* the sp2 plane, so the
+    # perpendicular projections of C->O and C->N_{i+1} are antiparallel
+    # whatever the bond angles are) -- see topology.carbonyl_o_dihedral.
+    # A template has no next residue, so the plane is anchored to the
+    # residue's own psi mean instead of a fixed 180 (the residue's
+    # phi/psi attrs are set below).
     for i, j, k, l in BACKBONE_IC_PATH["intra"]:
         if (k, l) not in bl:
             continue
@@ -343,10 +357,12 @@ def build_template(resn, ss, rotamer="canonical"):
     ic.psi = float(t["psi"])
     ic.omega = float(t["omega"])
     # carbonyl O on the trans peptide plane: O is anti to the next residue's
-    # amide N across the C-N bond -> dihedral(N, CA, C, O) = psi - 180.
+    # amide N across the C-N bond -> dihedral(N, CA, C, O) = psi - 180, from
+    # the sp2 coplanarity of C (single definition: topology.carbonyl_o_dihedral).
     # (placeholder 0.0 above; set the real value now that psi is known)
     for quad in BACKBONE_IC_PATH["intra"]:
         if quad[3] == "O" and (idx[quad[0]], idx[quad[1]], idx[quad[2]], idx[quad[3]]) in ic.dihedra:
-            ic.dihedra[(idx[quad[0]], idx[quad[1]], idx[quad[2]], idx[quad[3]])] = (float(t["psi"]) - 180.0) % 360.0
+            ic.dihedra[(idx[quad[0]], idx[quad[1]], idx[quad[2]], idx[quad[3]])] = \
+                carbonyl_o_dihedral(t["psi"])
     ic.rotamer = rotamer
     return ic

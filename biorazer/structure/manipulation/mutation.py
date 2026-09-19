@@ -33,8 +33,23 @@
 因为 rotamer 是一次**刚性子树旋转**, 键长/键角/非 chi 二面角在旋转下不变,
 所以第 3 步取理想值、第 5 步只改 chi 是**严格正确**的, 不是近似。
 
+羰基 ``O`` (与侧链无关, 但同一函数要顺手给出)
+───────────────────────────────────────────
+侧链**不**依赖 ``O``: :data:`...topology.IC_PATH` 里没有任何含 ``O`` 的 quad,
+``CB`` 的参考帧是本残基的 ``C/N/CA``。但 :func:`build_side_chain` 返回的残基要带
+``O``。``O`` 绕 ``CA-C`` 的那个二面角**不是自由度**: 羰基碳是 sp2, 三个取代基
+共面且该平面包含旋转轴 ``CA-C``, 因此
+``dihedral(N, CA, C, O) = psi - 180`` (与键角数值无关, 见
+:func:`~biorazer.database.molecule.icoor.protein.topology.carbonyl_o_dihedral`)。
+放 ``O`` 的信息有三档, 从精确到近似:
+
+1. 真实的下一个 N (``next_n``) -> 直接量出 ``psi``, **精确**;
+2. 该残基的 ``psi`` -> 用它 (``psi`` 就是未知 ``N_{i+1}`` 的方位);
+3. 都没有 -> 所属 ``ss`` 类的均值 ``psi`` (模板的默认值, 精确到该类的散布)。
+
 下游再交给 :func:`~biorazer.structure.manipulation.modification.replace_side_chains`
-装配回整结构。
+装配回整结构 (它保留原结构的 ``N/CA/C/O/OXT``, 所以 ``mutate`` 的输出用的是**原来
+的** ``O``; 这套定位服务于直接调用 :func:`build_side_chain` 的场景)。
 
 二面角约定 (单一数据源)
 ────────────────────────
@@ -71,7 +86,9 @@ import biotite.structure as bio_struct
 from biotite.structure import AtomArray
 
 from biorazer.database.molecule.bond.dihedral.protein import SIDECHAIN_CHI
+from biorazer.database.molecule.bond.length.protein import AMINO_ACID_BOND_LENGTH
 from biorazer.database.molecule.icoor.protein import template
+from biorazer.database.molecule.icoor.protein.topology import carbonyl_o_dihedral
 from biorazer.database.alphabet import AMINO_ACIDS_1TO3_UPPER
 
 from ..objects.internal_coords import dihedral
@@ -85,6 +102,12 @@ __all__ = [
     "build_side_chain",
     "mutate",
 ]
+
+#: 肽键 ``C-N`` 理想键长 (**A**)。判"这真的是相邻残基的 N/C 吗"用的期望值。
+_PEPTIDE_CN = float(AMINO_ACID_BOND_LENGTH[("C", "N")]["mean"])
+#: 肽键 ``C-N`` 的键长上界 (**A**)。超过它就不是肽键 —— 链断或传错残基。
+#: 与 ``InternalCoord.from_atomarray`` 的 peptide 环节用**同一个**判据, 不另立阈值。
+_MAX_PEPTIDE_CN = float(AMINO_ACID_BOND_LENGTH[("C", "N")]["up"])
 
 #: rotamer 库来源 -> 读取函数名 (惰性 import, 免得只为读一个库就把重依赖拉起来)
 _LIBRARY_READERS = {
@@ -184,6 +207,12 @@ def _backbone_neighbours(arr, groups, key):
     残基)。缺残基 / 断链时返回 ``None`` —— 跨断口算出来的 phi/psi 是假的,
     比返回 NaN 更危险。
 
+    号相邻**还不够**: 重编号过的链、``TER`` 断口、或传错的残基都可能号相邻而
+    肽键不成立。所以这里再量一次 ``C-N`` 距离, 超过键长表上界
+    (``_MAX_PEPTIDE_CN``, 与 ``InternalCoord.from_atomarray`` 同一判据) 就当作
+    没有邻居。这条现在是硬要求: ``next_n`` 会被 :func:`build_side_chain` 直接
+    用来**精确**定位羰基 ``O``, 假的邻居会给出假的肽平面, 比退回 ``ss`` 均值更糟。
+
     Notes
     -----
     这里**必须按原子名取** ``C`` 与 ``N``。早期版本用 ``groups[prev][-1]`` 当作
@@ -193,11 +222,20 @@ def _backbone_neighbours(arr, groups, key):
     """
     order = [k for k in groups if k[0] == key[0]]
     i = order.index(key)
+    own = groups[key]
+    n_self = _atom_xyz(arr, own, "N")
+    c_self = _atom_xyz(arr, own, "C")
     prev_c = next_n = None
     if i > 0 and 0 <= key[1] - order[i - 1][1] <= 1:
         prev_c = _atom_xyz(arr, groups[order[i - 1]], "C")
+        if (prev_c is not None and n_self is not None
+                and float(np.linalg.norm(n_self - prev_c)) > _MAX_PEPTIDE_CN):
+            prev_c = None
     if i + 1 < len(order) and 0 <= order[i + 1][1] - key[1] <= 1:
         next_n = _atom_xyz(arr, groups[order[i + 1]], "N")
+        if (next_n is not None and c_self is not None
+                and float(np.linalg.norm(next_n - c_self)) > _MAX_PEPTIDE_CN):
+            next_n = None
     return prev_c, next_n
 
 
@@ -257,6 +295,7 @@ def build_side_chain(
     ss: str | None = None,
     phi: float | None = None,
     psi: float | None = None,
+    next_n=None,
     tol: float = 1e-6,
 ) -> AtomArray:
     """按理想 icoor 模板 + 指定 chi, 在**真实骨架**上重建一个残基。
@@ -265,13 +304,21 @@ def build_side_chain(
     ----------
     res_name : 目标三字母残基名 (大写)
     backbone_xyz : ``{"N": xyz, "CA": xyz, "C": xyz}`` —— 真实骨架坐标。
-        额外的 ``O`` 会被忽略 (O 由模板按 ``psi`` 重新生长)。
+        额外的 ``O`` 会被忽略: ``O`` 一律按下面的三档信息重新定位。
     chi : chi 值, 单位度。可以是 ``None`` (用模板 canonical 值)、序列
         ``(chi1, chi2, ...)``、或 ``{原子名: 角度}`` (键是 chi 四元组的**末端**
         原子名, 如 ``{"CG": -60.0, "ND1": 90.0}``)。
     ss : 二级结构类别; ``None`` 时由 ``phi``/``psi`` 粗判 (见
-        :func:`ss_from_phi_psi`)。**侧链几何不依赖 ss**, 它只决定骨架 O 的位置。
-    phi, psi : 三级结构二面角 (度), 只用于选 ``ss`` 与放 O。
+        :func:`ss_from_phi_psi`)。**侧链几何不依赖 ss**, 它只决定骨架 ``O``
+        的位置 —— 而且只在既没有 ``next_n`` 也没有 ``psi`` 时才轮得到它。
+    phi, psi : 三级结构二面角 (度)。``psi`` 决定羰基 ``O`` 的二面角
+        (``psi - 180``, 见 Notes); ``phi`` 只参与粗判 ``ss``。
+    next_n : array_like (3,), optional
+        下一个残基 (同链 ``i+1``) 的酰胺 ``N`` 的**真实坐标**。给了它, 羰基
+        ``O`` 就按 C 的 sp2 共面性**精确**定位 (O 与 ``N_{i+1}`` 绕 ``CA-C``
+        反平行), 不再需要 ``psi``/``ss``。若它与本残基 ``C`` 的距离超出肽键键长
+        上界 (说明不是下一个残基的 N), 报 :exc:`ValueError` —— 而不是悄悄给出
+        一个假肽平面。
 
     Returns
     -------
@@ -285,6 +332,22 @@ def build_side_chain(
     chi 键整体转动。键长、键角、以及任何"不在被转动子树内部"的二面角在旋转下
     都不变。所以模板里除 chi 以外的量可以直接用数据库的理想值, 只有 chi 需要
     换成目标值。
+
+    **羰基 ``O`` 为什么需要 ``psi`` (或 ``next_n``)**: ``O`` 绕 ``CA-C`` 的
+    二面角**不是**自由参数 —— 羰基碳 sp2 使 ``CA/O/N_{i+1}`` 共面, 而该平面包含
+    旋转轴 ``CA-C``, 于是 ``dihedral(N, CA, C, O) = psi - 180`` 与键角数值无关
+    (推导与实测残差见
+    :func:`~biorazer.database.molecule.icoor.protein.topology.carbonyl_o_dihedral`)。
+    但 ``psi = (N, CA, C, N_{i+1})`` 需要的 ``N_{i+1}`` 不在本残基的
+    ``{N, CA, C}`` 里, 所以这里按 ``next_n`` > ``psi`` > ``ss`` 类均值三级取值
+    (第一级精确, 后两级是退路)。实测 (6VY1 A10, 真 ``psi = -49.1``, 真 O 二面角
+    ``131.4``):
+
+    * 传 ``next_n`` -> ``130.90`` (真 O 是 ``131.44``, 差 ``-0.54`` = 该残基实际的
+      出平面量; O 位移 ``0.025`` A) —— 与直接传 ``psi`` 同值;
+    * 只给 ``ss="alpha-helix"`` -> ``135.00`` (差 ``+3.56``, O 偏 ``0.070`` A);
+    * 只给 ``ss="coil"`` (均值 psi = 0) -> ``180.00`` (差 ``+48.56``, O 偏 ``0.876`` A);
+    * 误判成 ``ss="beta-strand"`` -> ``-50.00`` (差 ``178.6``, O 偏 ``2.13`` A)。
 
     **已知取舍**: ``CB`` 是从骨架帧 ``(C, N, CA)`` 用理想二面角生长的, 与真实
     结构中观测到的 ``CB`` 会有细微差别。若要精确复现野生型, 应当把野生型的
@@ -351,6 +414,29 @@ def build_side_chain(
 
     if phi is not None and psi is not None:
         ic.phi, ic.psi = float(phi), float(psi)
+
+    # ---- 羰基 O: 由 C 的 sp2 共面性定位 (三档信息, 从精确到近似) ----
+    # 见 topology.carbonyl_o_dihedral: C 是 sp2 中心, CA/O/N_{i+1} 共面且该平面
+    # 含旋转轴 CA-C, 所以 dihedral(N, CA, C, O) = psi - 180, 与键角数值无关。
+    # 模板已按 ss 类的均值 psi 放好了 O (build_template), 这里用更硬的信息覆盖:
+    #   1. 真实 N_{i+1} -> 量出 psi, 精确;
+    #   2. 传入的 psi   -> 用它 (psi 就是未知 N_{i+1} 的方位);
+    #   3. 两者都没有   -> 保留模板的值 (ss 类均值)。
+    if next_n is not None:
+        n2 = np.asarray(next_n, float).reshape(-1)
+        if n2.shape != (3,):
+            raise ValueError(f"next_n must be a 3-vector, got shape {n2.shape}")
+        d_cn = float(np.linalg.norm(n2 - c_x))
+        if d_cn > _MAX_PEPTIDE_CN:
+            raise ValueError(
+                f"next_n is {d_cn:.2f} A from this residue's C; a peptide bond "
+                f"C-N is {_PEPTIDE_CN:.3f} A (max {_MAX_PEPTIDE_CN:.3f}), so this "
+                "is not the next residue's amide N")
+        psi = dihedral(n_x, ca_x, c_x, n2)
+    if psi is not None:
+        ic.dihedra[(idx["N"], idx["CA"], idx["C"], idx["O"])] = \
+            carbonyl_o_dihedral(psi)
+        ic.psi = float(psi)
 
     coords = ic.to_coords(tol=tol)
     n_atoms = len(ic.atoms)
@@ -472,7 +558,7 @@ def mutate(
             if next_n is not None:
                 psi = dihedral(bb["N"], bb["CA"], bb["C"], next_n)
             targets[k] = dict(res_name=tgt_res_name, backbone=bb,
-                              phi=phi, psi=psi, idxs=idxs)
+                              phi=phi, psi=psi, next_n=next_n, idxs=idxs)
 
     # ---- 逐残基选 rotamer 并重建 ----
     implants, info = [], []
@@ -507,7 +593,7 @@ def mutate(
                 chis = ()
 
         aa = build_side_chain(res_name, t["backbone"], chi=chis, ss=ss,
-                              phi=phi, psi=psi)
+                              phi=phi, psi=psi, next_n=t["next_n"])
         aa.chain_id[:] = k[0]
         aa.res_id[:] = k[1]
         aa.ins_code[:] = k[2]
