@@ -5,7 +5,7 @@ build-backend = "poetry.core.masonry.api"
 [tool.poetry]
 name = "biorazer"
 description = "A platform for analyzing various biological information"
-version = "0.9.5"
+version = "0.9.6"
 readme = "README.md"
 license = "MIT"
 authors = [
@@ -25,14 +25,16 @@ packages = [
 ]
 # ``scripts/build.py`` (the ``[tool.poetry.build]`` hook) compiles this
 # extension into the source tree, but poetry-core drops every file that git
-# ignores when the build happens inside a checkout -- and .gitignore lists
-# ``*.so``.  CI builds in a checkout, so the wheel was assembled without the
-# extension and ``auditwheel`` then refused it ("no ELF ... in the wheel
-# archive").  An explicit include is subtracted from the ignored set
+# ignores when the build happens inside a checkout -- and .gitignore lists both
+# ``*.pyd`` and ``*.so``.  CI builds in a checkout, so the wheel was assembled
+# without the extension: ``auditwheel`` then refused the Linux wheel ("no ELF
+# ... in the wheel archive") and the Windows wheel shipped with no ``.pyd`` at
+# all.  An explicit include is subtracted from the ignored set
 # (``poetry.core.masonry.builders.builder.find_excluded_files``); the sdist
 # keeps shipping only the ``.pyx``.
 include = [
     { path = "biorazer/structure/util/geometry/sphere/*.so", format = ["wheel"] },
+    { path = "biorazer/structure/util/geometry/sphere/*.pyd", format = ["wheel"] },
 ]
 
 [tool.poetry.urls]
