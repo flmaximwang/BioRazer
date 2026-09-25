@@ -177,9 +177,12 @@ class TestCliWiring:
 
     def test_top_level_cli_help_lists_colabfold_msa(self):
         """经 biorazer.cli 主入口 (最上层消费路径) 可见该子命令。"""
+        # 子进程的输出是 UTF-8 (biorazer.cli 在非 UTF-8 控制台上会强制 UTF-8,
+        # 否则中文帮助在 Windows 重定向时会 UnicodeEncodeError)。父进程若按
+        # locale 代码页解码 (Windows 上 cp1252), 就会 UnicodeDecodeError。
         result = subprocess.run(
             [sys.executable, "-m", "biorazer.cli", "--help"],
-            capture_output=True, text=True,
+            capture_output=True, text=True, encoding="utf-8", errors="replace",
         )
         assert result.returncode == 0
         assert "colabfold-msa" in result.stdout
