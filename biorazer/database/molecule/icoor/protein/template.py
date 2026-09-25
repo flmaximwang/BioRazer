@@ -11,12 +11,14 @@ This module is the single entry point of the
     from biorazer.database.molecule.icoor.protein import template
 
     template.get_available_specs("ALA")
-    ic = template.build_template("ALA", "alpha-helix", "canonical")
+    ic, spec = template.build_template("ALA", "alpha-helix", "canonical")
 
 * :func:`get_available_specs` -- the ``(secondary-structure, rotamer)``
   combinations available for a residue.
 * :func:`build_template` -- build one ``InternalCoord`` template for a
-  residue at a chosen ``ss`` x ``rotamer``.
+  residue at a chosen ``ss`` x ``rotamer``.  It returns
+  ``(ic, spec)``: the coordinate set plus the :class:`TemplateSpec` recording
+  the build parameters.
 
 Design
 ------
@@ -28,12 +30,13 @@ reconstructible from the anchor.  A template is a **per-conformer ideal
 snapshot**:
 
 * backbone: canonical Engh-Huber / Rosetta ideal; the secondary-structure
-  ``phi``/``psi``/``omega`` means (from ``torsion_angle.backbone``) are carried
-  on the template instance (``phi``/``psi``/``omega`` attrs) --- a single
-  residue's own atoms cannot encode them (they need the neighbor residues).
+  ``phi``/``psi``/``omega`` means (from ``torsion_angle.backbone``) come back in
+  the :class:`TemplateSpec` --- a single residue's own atoms cannot encode them
+  (they need the neighbor residues), and they are build *parameters*, not
+  properties of the returned coordinate set.
   The carbonyl ``O`` branch dihedral is placed on the **trans peptide plane**:
   O is anti to the next residue's amide N across the C-N bond, i.e.
-  ``dihedral(N, CA, C, O) = psi - 180`` (``psi`` = the residue's ``psi`` attr).
+  ``dihedral(N, CA, C, O) = psi - 180`` (``psi`` = ``spec.psi``).
   That ``- 180`` is a consequence of the **sp2 coplanarity of the carbonyl
   carbon** alone -- not of any bond-angle value (see
   :func:`~biorazer.database.molecule.icoor.protein.topology.carbonyl_o_dihedral`),
@@ -64,6 +67,8 @@ measure-from-coordinates geometry bit-for-bit (bond/angle/dihedral all equal).
 """
 
 from __future__ import annotations
+
+from dataclasses import dataclass
 
 import numpy as np
 
@@ -238,6 +243,50 @@ def get_available_specs(resn):
     return [(ss, rot) for ss in SS_CLASSES for rot in rotamer_names(resn)]
 
 
+# --------------------------------------------------------------------------- #
+# build record
+# --------------------------------------------------------------------------- #
+@dataclass(frozen=True, slots=True)
+class TemplateSpec:
+    """The parameters one :func:`build_template` call was made with.
+
+    A **value record** (frozen, compared by value) returned *beside* the
+    template instead of being attached to it: ``ss`` and ``rotamer`` are build
+    **inputs**, and ``phi``/``psi``/``omega`` are the SS-class means the build
+    used to place the carbonyl ``O``.  None of the five is a property of the
+    returned coordinate set -- a multi-residue ``InternalCoord``
+    (``from_atomarray`` / ``connect_internal_coords``) has no single value for
+    them, which is exactly why they must not live on the container.
+
+    Fields
+    ------
+    resn : str
+        Three-letter residue name the template was built for.
+    ss : str
+        Secondary-structure class key.
+    rotamer : str
+        Rotamer name the chi dihedrals were taken from.
+    phi, psi, omega : float
+        The class-mean backbone torsions in **degree**
+        (:func:`ss_torsions`).
+
+    Examples
+    --------
+    >>> spec = build_template("SER", "alpha-helix", "g-")[1]
+    >>> spec
+    TemplateSpec(resn='SER', ss='alpha-helix', rotamer='g-', phi=-60.0, psi=-45.0, omega=180.0)
+    >>> spec.phi, spec.psi
+    (-60.0, -45.0)
+    """
+
+    resn: str
+    ss: str
+    rotamer: str
+    phi: float
+    psi: float
+    omega: float
+
+
 def build_template(resn, ss, rotamer="canonical"):
     """Build one ``InternalCoord`` template for ``resn`` at ``ss`` and ``rotamer``
     by **direct table fill** -- no all-atom Cartesian placement, no
@@ -259,17 +308,27 @@ def build_template(resn, ss, rotamer="canonical"):
     rotamer : str
         A rotamer name from :func:`get_available_specs` (default "canonical").
 
+    Returns
+    -------
+    ic : InternalCoord
+        The single-residue template (annotations + the generative maps).
+    spec : TemplateSpec
+        The build parameters (``resn``/``ss``/``rotamer`` and the SS-class mean
+        ``phi``/``psi``/``omega``).  Returned **beside** the template, not
+        attached to it -- a coordinate container holds geometry only, and a
+        multi-residue instance has no single value for these.
+
     Examples
     --------
     Build the canonical ALA template at alpha-helix SS:
 
-    >>> ic = build_template("ALA", "alpha-helix", "canonical")
+    >>> ic, spec = build_template("ALA", "alpha-helix", "canonical")
     >>> [a.name for a in ic.atoms]          # order = anchor + backbone O + side chain
     ['N', 'CA', 'C', 'O', 'CB']
-    >>> ic.phi, ic.psi, ic.omega            # carried on the instance (SS means)
+    >>> spec.ss, spec.rotamer
+    ('alpha-helix', 'canonical')
+    >>> spec.phi, spec.psi, spec.omega      # ss-class means (degree)
     (-60.0, -45.0, 180.0)
-    >>> ic.rotamer
-    'canonical'
 
     The anchor frame {N, CA, C} is the only absolute geometry (N at origin,
     CA along +x, C from the N-CA-C bond angle):
@@ -352,17 +411,15 @@ def build_template(resn, ss, rotamer="canonical"):
         )
 
     t = ss_torsions(ss)
-    ic.ss = ss
-    ic.phi = float(t["phi"])
-    ic.psi = float(t["psi"])
-    ic.omega = float(t["omega"])
+    spec = TemplateSpec(resn=resn, ss=ss, rotamer=rotamer,
+                        phi=float(t["phi"]), psi=float(t["psi"]),
+                        omega=float(t["omega"]))
     # carbonyl O on the trans peptide plane: O is anti to the next residue's
     # amide N across the C-N bond -> dihedral(N, CA, C, O) = psi - 180, from
     # the sp2 coplanarity of C (single definition: topology.carbonyl_o_dihedral).
-    # (placeholder 0.0 above; set the real value now that psi is known)
+    # (placeholder 0.0 above; set the real value now that spec.psi is known)
     for quad in BACKBONE_IC_PATH["intra"]:
         if quad[3] == "O" and (idx[quad[0]], idx[quad[1]], idx[quad[2]], idx[quad[3]]) in ic.dihedra:
             ic.dihedra[(idx[quad[0]], idx[quad[1]], idx[quad[2]], idx[quad[3]])] = \
-                carbonyl_o_dihedral(t["psi"])
-    ic.rotamer = rotamer
-    return ic
+                carbonyl_o_dihedral(spec.psi)
+    return ic, spec

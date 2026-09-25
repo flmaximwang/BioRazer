@@ -376,7 +376,7 @@ def build_side_chain(
             f"unknown secondary-structure class {ss!r}; "
             f"expected one of {template.SS_CLASSES}")
 
-    ic = template.build_template(res_name, ss, "canonical")
+    ic, _ = template.build_template(res_name, ss, "canonical")
     idx = {a.name: n for n, a in enumerate(ic.atoms)}
 
     # ---- 关键一步: 把 anchor 换成真实骨架, 并同步 anchor 内部的键长/键角 ----
@@ -403,17 +403,16 @@ def build_side_chain(
             for quad in chis:
                 last = quad[3]
                 if last in targets:
-                    ic.dihedra[tuple(idx[a] for a in quad)] = targets[last]
+                    ic.dihedra[(idx[quad[0]], idx[quad[1]], idx[quad[2]],
+                                idx[quad[3]])] = targets[last]
         else:
             vals = list(chi)
             if len(vals) > len(chis):
                 raise ValueError(
                     f"{res_name} has {len(chis)} chi but {len(vals)} values given")
             for quad, val in zip(chis, vals):
-                ic.dihedra[tuple(idx[a] for a in quad)] = float(val)
-
-    if phi is not None and psi is not None:
-        ic.phi, ic.psi = float(phi), float(psi)
+                ic.dihedra[(idx[quad[0]], idx[quad[1]], idx[quad[2]],
+                            idx[quad[3]])] = float(val)
 
     # ---- 羰基 O: 由 C 的 sp2 共面性定位 (三档信息, 从精确到近似) ----
     # 见 topology.carbonyl_o_dihedral: C 是 sp2 中心, CA/O/N_{i+1} 共面且该平面
@@ -436,7 +435,6 @@ def build_side_chain(
     if psi is not None:
         ic.dihedra[(idx["N"], idx["CA"], idx["C"], idx["O"])] = \
             carbonyl_o_dihedral(psi)
-        ic.psi = float(psi)
 
     coords = ic.to_coords(tol=tol)
     n_atoms = len(ic.atoms)

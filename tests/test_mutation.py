@@ -78,7 +78,7 @@ def _ideal_chain(n_res, chain_id, phi=PHI, psi=PSI, omega=OMEGA,
         res_names = ["ALA"] * n_res
     assert len(res_names) == n_res
 
-    ic = template.build_template("ALA", "alpha-helix")
+    ic, _ = template.build_template("ALA", "alpha-helix")
     pos = {a.name: np.asarray(ic.anchor[i], float)
            for i, a in enumerate(ic.atoms) if i in ic.anchor}
     n_coord, ca_coord, c_coord = pos["N"], pos["CA"], pos["C"]

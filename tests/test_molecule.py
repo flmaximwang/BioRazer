@@ -417,9 +417,10 @@ class TestTemplates:
 
     def test_build_and_to_atomarray(self):
         from biorazer.database.molecule.icoor.protein import template
-        ic = template.build_template("SER", "alpha-helix", "g-")
-        assert ic.phi == -60.0 and ic.psi == -45.0 and ic.omega == 180.0
-        assert ic.rotamer == "g-" and ic.ss == "alpha-helix"
+        ic, spec = template.build_template("SER", "alpha-helix", "g-")
+        assert spec.resn == "SER"
+        assert spec.phi == -60.0 and spec.psi == -45.0 and spec.omega == 180.0
+        assert spec.rotamer == "g-" and spec.ss == "alpha-helix"
         arr = ic.to_atomarray()
         assert len(arr) == len(ic.atoms)
         names = set(arr.atom_name)
@@ -429,7 +430,7 @@ class TestTemplates:
         # to_coords -> from_atomarray must reproduce the template geometry
         from biorazer.database.molecule.icoor.protein import template
         from biorazer.structure.objects.internal_coords import InternalCoord
-        ic = template.build_template("TRP", "beta-strand")
+        ic, _ = template.build_template("TRP", "beta-strand")
         arr = ic.to_atomarray()
         ic2 = InternalCoord.from_atomarray(arr)
         # anchors identical (the IC frame is preserved)

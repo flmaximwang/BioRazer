@@ -26,17 +26,14 @@ bond_angles : dict[tuple[int,int,int], float]
 dihedra : dict[tuple[int,int,int,int], float]
     ``{(i,j,k,l): angle in degree}`` -- the dihedral of 4 ordered atoms.
 
-Metadata carried by the **write** paths only (``None`` on an instance read
-from a structure by :meth:`InternalCoord.from_atomarray`); no coordinate is
-derived from any of them:
-
-ss : str | None
-    Secondary-structure class the template was built at.
-phi, psi, omega : float | None
-    The **class-mean** backbone torsions (degree) the template was built
-    from -- a residual attribute for bookkeeping, not a per-atom value.
-rotamer : str | None
-    Rotamer name the template's chi values were taken from.
+A ``build_template`` template is a **single-residue** coordinate set.  The
+parameters it was built from (``ss``, ``rotamer``, and the ss-class mean
+``phi``/``psi``/``omega``) are deliberately **not** attributes of this
+container: they describe a *residue build*, not a coordinate set, and a
+multi-residue instance (``from_atomarray``, ``connect_internal_coords``) has
+no single value for them.  :func:`~biorazer.database.molecule.icoor.protein.template.build_template`
+returns them separately as a
+:class:`~biorazer.database.molecule.icoor.protein.template.TemplateSpec`.
 
 All angles (``bond_angles`` and ``dihedra``) are in **degree**; only
 ``bond_distances`` is in Angstrom.
@@ -265,11 +262,11 @@ class InternalCoord:
         ``{(i, j, k, l): degree}`` -- the generative map: ``l`` is grown from
         the parents ``(i, j, k)``.
 
-    ss : str | None
-    phi, psi, omega : float | None
-    rotamer : str | None
-        Write-path metadata (``build_template`` / ``build_side_chain``), see
-        the module docstring; ``None`` on a structure read from a file.
+    The container holds **geometry only** -- no build parameters.  The
+    ``ss`` / ``rotamer`` / ss-mean ``phi``/``psi``/``omega`` a
+    ``build_template`` call used are returned beside the template as a
+    :class:`~biorazer.database.molecule.icoor.protein.template.TemplateSpec`,
+    not attached here (see the module docstring).
 
     ``repr=False`` (a generated repr would dump every atom and map) and
     ``eq=False`` (the maps and atom records are mutated in place, so
@@ -287,11 +284,6 @@ class InternalCoord:
     bond_angles: dict[tuple[int, int, int], float] = field(default_factory=dict)
     dihedra: dict[tuple[int, int, int, int], float] = field(
         default_factory=dict)
-    ss: str | None = None
-    phi: float | None = None
-    psi: float | None = None
-    omega: float | None = None
-    rotamer: str | None = None
 
     def __post_init__(self):
         """Keep the pre-dataclass container contract.
