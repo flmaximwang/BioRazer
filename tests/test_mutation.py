@@ -438,6 +438,7 @@ class TestPeptideNeighbours:
 # --------------------------------------------------------------------------
 class TestMutate:
     def test_backbone_unchanged(self, two_chain_array):
+        _need_pymol()
         out = mutate(two_chain_array, ["A3H"], chain="A")
         for nm in ("N", "CA", "C", "O"):
             for r in (3, 4):
@@ -450,6 +451,7 @@ class TestMutate:
                 assert np.allclose(a, b, atol=1e-6), f"A{r} {nm} 动了"
 
     def test_ala_to_his_has_ten_atoms(self, two_chain_array):
+        _need_pymol()
         out = mutate(two_chain_array, ["A3H"], chain="A")
         m, names = _residue_atoms(out, "A", 3)
         assert str(out.res_name[m][0]) == "HIS"
@@ -457,6 +459,7 @@ class TestMutate:
             ["N", "CA", "C", "O", "CB", "CG", "ND1", "CD2", "CE1", "NE2"])
 
     def test_chain_scope(self, two_chain_array):
+        _need_pymol()
         out = mutate(two_chain_array, ["A3H"], chain="A")
         assert str(out.res_name[(out.chain_id == "A") & (out.res_id == 3)][0]) \
             == "HIS"
@@ -466,6 +469,7 @@ class TestMutate:
         assert len(out) == len(two_chain_array) + (10 - 4)
 
     def test_no_chain_argument_hits_every_chain(self, two_chain_array):
+        _need_pymol()
         out = mutate(two_chain_array, ["A3H"])
         for ch in ("A", "B"):
             assert str(out.res_name[(out.chain_id == ch)
@@ -495,6 +499,7 @@ class TestMutate:
 
     def test_gly_to_x_builds_side_chain(self):
         """GLY 没有 CB, 也必须能建出完整侧链。"""
+        _need_pymol()
         arr = _ideal_chain(6, "A", res_names=["ALA", "ALA", "GLY"] + ["ALA"] * 3)
         m, names = _residue_atoms(arr, "A", 3)
         assert "CB" not in names
@@ -510,10 +515,12 @@ class TestMutate:
         assert sorted(names) == ["C", "CA", "N", "O"]
 
     def test_rotamer_index_out_of_range_raises(self, two_chain_array):
+        _need_pymol()
         with pytest.raises(ValueError, match="out of range"):
             mutate(two_chain_array, ["A3H"], chain="A", rotamer=999)
 
     def test_explicit_chi_values(self, two_chain_array):
+        _need_pymol()
         want = (-70.0, 100.0)
         out = mutate(two_chain_array, ["A3H"], chain="A", rotamer=want)
         got = _measure_chi(out, "A", 3, "HIS")
@@ -554,12 +561,14 @@ class TestMutate:
     def test_phi_psi_are_the_real_backbone_torsions(self, two_chain_array):
         """phi/psi 必须按原子名取邻居 C/N —— 早期版本取了上一个残基的最后一个
         原子 (侧链末端), phi 会静默错掉。这里用理想骨架核对。"""
+        _need_pymol()
         _, info = mutate(two_chain_array, ["A3H"], chain="A",
                          return_info=True)
         assert info[0]["phi"] == pytest.approx(PHI, abs=0.05)
         assert info[0]["psi"] == pytest.approx(PSI, abs=0.05)
 
     def test_multiple_mutations_at_once(self, two_chain_array):
+        _need_pymol()
         out = mutate(two_chain_array, ["A2H", "A5F"], chain="A")
         assert str(out.res_name[(out.chain_id == "A")
                                 & (out.res_id == 2)][0]) == "HIS"
@@ -568,6 +577,7 @@ class TestMutate:
 
     def test_ala_to_his_does_not_touch_other_residues(
             self, two_chain_array):
+        _need_pymol()
         out = mutate(two_chain_array, ["A3H"], chain="A")
         keep = ~((out.chain_id == "A") & (out.res_id == 3))
         src = ~((two_chain_array.chain_id == "A")
