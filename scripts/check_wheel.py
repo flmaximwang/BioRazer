@@ -29,21 +29,35 @@ def _fail(message: str) -> int:
 
 
 def main() -> int:
-    # The project directory holds the build sources, not the installed package.
-    project = pathlib.Path(os.getcwd()).resolve()
-    sys.path[:] = [p for p in sys.path if p not in ("", str(project))]
+    # The checkout that built the wheel is still on disk, and the venv may even
+    # live inside it (the CI job creates .verify/ in the project directory), so
+    # "is the path under the project?" is the wrong question.  What matters is
+    # that biorazer did *not* come from this checkout's source package, and that
+    # it sits in a site-packages directory.
+    checkout_package = pathlib.Path(__file__).resolve().parents[1] / "biorazer"
+    sys.path[:] = [p for p in sys.path if p not in ("", os.getcwd())]
 
-    import biorazer
+    try:
+        import biorazer
+    except ImportError as exc:
+        return _fail(
+            f"cannot import biorazer ({exc}); a development environment points "
+            "back at the checkout -- this check only means something against an "
+            "installed wheel"
+        )
 
     location_str = getattr(biorazer, "__file__", None)
     if not location_str:
         return _fail("biorazer has no __file__ (is it a namespace package?)")
     location = pathlib.Path(location_str).resolve()
-    if location.parent == project or project in location.parents:
+
+    if location == checkout_package or checkout_package in location.parents:
         return _fail(
-            f"biorazer was imported from the source tree ({location}); this "
-            "check only means something against an installed wheel"
+            f"biorazer was imported from this checkout ({location}), not from an "
+            "installed wheel"
         )
+    if not any(p.name in {"site-packages", "dist-packages"} for p in location.parents):
+        return _fail(f"{location} is not inside a site-packages directory")
 
     try:
         module = importlib.import_module(EXTENSION)
