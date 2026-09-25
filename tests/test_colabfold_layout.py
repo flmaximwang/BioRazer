@@ -12,12 +12,26 @@
 import io
 import os
 import tarfile
+from pathlib import Path
 
 import pytest
 
 from biorazer.access.server.colabfold_msa import paired as paired_mod
 from biorazer.access.server.colabfold_msa import unpaired as unpaired_mod
 from biorazer.access.server.colabfold_msa.pipeline import run_search
+
+
+def _path_tail(raw: str, directory: str, name: str) -> bool:
+    """路径尾部是否为 <directory>/<name>。
+
+    不能拿 "/" 比字符串: Windows 上 str(Path) 用反斜杠, 实测 CI 的
+    test_plots_per_split_file / test_files_list_uses_mode_dirs /
+    test_single_chain_no_suffix 三条在 windows 腿假失败, 而它们上面那些
+    用 pathlib 的断言全过 —— 库行为是对的, 是断言假设了 POSIX 分隔符。
+    """
+    parts = Path(raw).parts
+    return len(parts) >= 2 and parts[-2:] == (directory, name)
+
 
 
 def _fake_tar_gz(path, files):
@@ -119,9 +133,9 @@ class TestLayoutPairedPlusUnpaired:
         assert (base / "paired" / "logo_1.png").is_file()
         assert (base / "paired" / "logo.png").is_file()
         plots = result.per_seq["complex"].plots
-        assert any(p.endswith("unpaired/logo_0.png") for p in plots)
-        assert any(p.endswith("paired/logo_1.png") for p in plots)
-        assert any(p.endswith("paired/logo.png") for p in plots)
+        assert any(_path_tail(p, "unpaired", "logo_0.png") for p in plots)
+        assert any(_path_tail(p, "paired", "logo_1.png") for p in plots)
+        assert any(_path_tail(p, "paired", "logo.png") for p in plots)
 
     def test_files_list_uses_mode_dirs(self, tmp_path, mock_pair, mock_unpaired):
         result = run_search([("complex", "AAA:BBB")], str(tmp_path),
@@ -129,11 +143,11 @@ class TestLayoutPairedPlusUnpaired:
                             use_env=False, use_filter=False,
                             host="mock", ua="mock")
         files = result.per_seq["complex"].files
-        assert any(f.endswith("unpaired/unpaired_0.a3m") for f in files)
-        assert any(f.endswith("unpaired/unpaired_1.a3m") for f in files)
-        assert any(f.endswith("paired/paired.a3m") for f in files)
-        assert any(f.endswith("paired/paired_0.a3m") for f in files)
-        assert any(f.endswith("paired/paired_1.a3m") for f in files)
+        assert any(_path_tail(f, "unpaired", "unpaired_0.a3m") for f in files)
+        assert any(_path_tail(f, "unpaired", "unpaired_1.a3m") for f in files)
+        assert any(_path_tail(f, "paired", "paired.a3m") for f in files)
+        assert any(_path_tail(f, "paired", "paired_0.a3m") for f in files)
+        assert any(_path_tail(f, "paired", "paired_1.a3m") for f in files)
 
 
 class TestLayoutSingleMode:
@@ -169,7 +183,7 @@ class TestLayoutSingleMode:
         assert not (base / "unpaired" / "unpaired_0.a3m").exists()
         assert (base / "unpaired" / "logo.png").is_file()
         assert not (base / "unpaired" / "logo_0.png").exists()
-        assert any(f.endswith("unpaired/unpaired.a3m") for f in
+        assert any(_path_tail(f, "unpaired", "unpaired.a3m") for f in
                    result.per_seq["prot"].files)
 
 
