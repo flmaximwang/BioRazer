@@ -1,5 +1,6 @@
 import re
 import numpy as np
+from biorazer.structure.objects import AtomArray
 import biotite.structure as bio_struct
 import hydride
 
@@ -15,7 +16,7 @@ from .util import (
 
 from ..objects import InternalCoord
 
-def add_hydrogens(atom_array: bio_struct.AtomArray):
+def add_hydrogens(atom_array: AtomArray):
     if not hasattr(atom_array, "bonds") or not atom_array.bonds:
         bond_list = bio_struct.connect_via_residue_names(atom_array)
         atom_array.bonds = bond_list
@@ -27,7 +28,7 @@ def add_hydrogens(atom_array: bio_struct.AtomArray):
 
 
 def remove_side_chains(
-    atom_array: bio_struct.AtomArray,
+    atom_array: AtomArray,
     mask: np.ndarray | None = None,
 ):
     """
@@ -81,10 +82,10 @@ def remove_side_chains(
 
 
 def replace_side_chains(
-    atom_array_backbone: bio_struct.AtomArray,
-    atom_array_implant: bio_struct.AtomArray,
+    atom_array_backbone: AtomArray,
+    atom_array_implant: AtomArray,
     mask_map: list[np.ndarray],
-) -> bio_struct.AtomArray:
+) -> AtomArray:
     """
     Replace side chains of residues selected in ``atom_array_backbone`` with
     side chains taken from residues selected in ``atom_array_implant``.
@@ -233,9 +234,9 @@ _MUTATION_SPEC_PATTERN = re.compile(r"^([A-Za-z])(\d+)([A-Za-z])$")
 
 
 def mutate_without_side_chains(
-    atom_array: bio_struct.AtomArray,
+    atom_array: AtomArray,
     mutation_spec: list[str],
-) -> bio_struct.AtomArray:
+) -> AtomArray:
     """
     Convert residues to backbone-only scaffolds of a target residue type.
 

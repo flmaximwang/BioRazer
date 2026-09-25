@@ -8,8 +8,8 @@ modules.
 """
 from biotite import structure as bio_struct
 import numpy as np
-from biotite.structure import AtomArray
 from biorazer.display import print_with_decoration, print_decoration_line
+from biorazer.structure.objects import AtomArray
 from biorazer.structure.util.report import (
     _normalize_fmt,
 )

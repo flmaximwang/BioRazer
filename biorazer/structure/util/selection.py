@@ -1,14 +1,14 @@
 import numpy as np
-from biotite import structure as bio_struct
+from biorazer.structure.objects import AtomArray
 
 
-def _normalize_selection(atom_array: bio_struct.AtomArray, selection):
+def _normalize_selection(atom_array: AtomArray, selection):
     """
     Normalize an optional selection into a boolean mask aligned with atom_array.
 
     Parameters
     ----------
-    atom_array : bio_struct.AtomArray
+    atom_array : AtomArray
         Structure atoms used as the reference shape.
     selection : array-like or None
         If None, returns a full-True mask. Otherwise coerced to bool mask.

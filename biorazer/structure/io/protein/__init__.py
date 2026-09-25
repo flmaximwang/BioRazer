@@ -13,10 +13,10 @@ modules by concern:
 """
 
 from biotite.structure.io import pdb, pdbx
-from biotite.structure import AtomArray
 import biotite.structure as bio_struc
 from biorazer.database.alphabet import AMINO_ACIDS_3TO1_UPPER
 from biorazer.io import Converter
+from biorazer.structure.objects import AtomArray
 
 from ._pdb_records import _format_link_records, _format_ssbond_records, _inject_seg_ids
 from ._io import _io_target, _written_text

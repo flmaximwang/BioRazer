@@ -22,7 +22,8 @@ Four families of transforms are provided:
 """
 import numpy as np
 import biotite.structure as bio_struct
-from biotite.structure import AtomArray
+
+from biorazer.structure.objects import AtomArray
 
 
 def _normalize_mask(atom_array, mask, name="mask"):

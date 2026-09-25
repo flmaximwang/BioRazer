@@ -1,4 +1,5 @@
 import numpy as np
+from biorazer.structure.objects import AtomArray
 import biotite.structure as bio_struct
 import hydride
 from ...selection.mask.annotation import extend_by_res as _by_res_id, revert_mask as _revert_mask
@@ -7,7 +8,7 @@ from ....structure.analysis.static import check
 
 
 def hbond_atoms(
-    atom_array: bio_struct.AtomArray,
+    atom_array: AtomArray,
     selection_1: np.ndarray,
     selection_2: np.ndarray,
     **kwargs
@@ -17,7 +18,7 @@ def hbond_atoms(
 
     Parameters
     ----------
-    atom_array: bio_struct.AtomArray
+    atom_array: AtomArray
         The biotite structure array from which to select hydrogen bond atoms.
     selection_1: np.ndarray
         The atom mask for the 1st selection.
@@ -26,11 +27,11 @@ def hbond_atoms(
 
     Returns
     -------
-    hbond_mask_1: bio_struct.AtomArray
+    hbond_mask_1: AtomArray
         The hydrogen bond atom mask from the 1st selection.
-    hbond_mask_2: bio_struct.AtomArray
+    hbond_mask_2: AtomArray
         The hydrogen bond atom mask from the 2nd selection.
-    atom_array: bio_struct.AtomArray
+    atom_array: AtomArray
         The biotite structure array with hydrogen atoms added if not present.
     """
 
@@ -56,7 +57,7 @@ def hbond_atoms(
 
 
 def buried_unsat_hbond_atoms(
-    atom_array: bio_struct.AtomArray,
+    atom_array: AtomArray,
     selection1,
     selection2,
     sasa_kwargs=dict(sasa_cutoff=0.5, probe_radius=1.4),
@@ -68,7 +69,7 @@ def buried_unsat_hbond_atoms(
 
     Parameters
     ----------
-    atom_array : bio_struct.AtomArray
+    atom_array : AtomArray
         The biotite structure array containing the atoms.
     selection1 : np.ndarray
         The atom mask for the 1st selection.

@@ -17,9 +17,8 @@ import time
 from typing import Dict, List, Optional, Tuple
 from urllib.request import Request, urlopen
 
-from biotite.structure import AtomArray
-
 from biorazer.structure.io.protein import AtomArray_Cif, Pdb_AtomArray
+from biorazer.structure.objects import AtomArray
 
 
 # ── 模板下载与链拆分 ────────────────────────────────

@@ -1,11 +1,12 @@
 import numpy as np
+from biorazer.structure.objects import AtomArray
 import biotite.structure as bio_struct
 from .. import report
 from ....selection.mask import complex
 
 
 def sasa_array(
-    atom_array: bio_struct.AtomArray,
+    atom_array: AtomArray,
     probe_radius=1.4,
     atom_filter=None,
     ignore_ions=True,
@@ -36,7 +37,7 @@ def sasa_array(
 
 
 def buried_unsat_hbond(
-    atom_array: bio_struct.AtomArray,
+    atom_array: AtomArray,
     selection1: np.ndarray,
     selection2: np.ndarray,
     sasa_kwargs=dict(sasa_cutoff=0.5, probe_radius=1.4),
@@ -57,7 +58,7 @@ def buried_unsat_hbond(
 
 
 def hbond(
-    atom_array: bio_struct.AtomArray,
+    atom_array: AtomArray,
     selection1: np.ndarray,
     selection2: np.ndarray,
     cutoff_dist=2.5,

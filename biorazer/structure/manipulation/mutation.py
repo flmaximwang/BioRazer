@@ -83,7 +83,6 @@ from __future__ import annotations
 
 import numpy as np
 import biotite.structure as bio_struct
-from biotite.structure import AtomArray
 
 from biorazer.database.molecule.bond.dihedral.protein import SIDECHAIN_CHI
 from biorazer.database.molecule.bond.length.protein import AMINO_ACID_BOND_LENGTH
@@ -91,6 +90,7 @@ from biorazer.database.molecule.icoor.protein import template
 from biorazer.database.molecule.icoor.protein.topology import carbonyl_o_dihedral
 from biorazer.database.alphabet import AMINO_ACIDS_1TO3_UPPER
 
+from biorazer.structure.objects import AtomArray
 from ..objects.internal_coords import dihedral
 from ..selection.index.annotation import group_atoms_by_residue
 from .modification import remove_side_chains, replace_side_chains

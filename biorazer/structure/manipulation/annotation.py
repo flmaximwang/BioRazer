@@ -1,4 +1,5 @@
 import numpy as np
+from biorazer.structure.objects import AtomArray, BondList
 import biotite.structure as bio_struct
 
 from ..selection.index.annotation import group_atoms_by_residue
@@ -8,7 +9,7 @@ _WATER_RES_NAMES = {"HOH", "WAT", "DOD"}
 
 
 def get_renumbered_res_ids(
-    atom_array: bio_struct.AtomArray, res_id_start=1
+    atom_array: AtomArray, res_id_start=1
 ) -> np.ndarray:
     """
     Get renumbered residue IDs from an AtomArray.
@@ -18,7 +19,7 @@ def get_renumbered_res_ids(
 
     Parameters
     ----------
-    atom_array : bio_struct.AtomArray
+    atom_array : AtomArray
         The AtomArray from which to extract residue IDs.
 
     Returns
@@ -34,7 +35,7 @@ def get_renumbered_res_ids(
     return new_res_ids
 
 def add_bonds_to_organic(
-    atom_array: bio_struct.AtomArray,
+    atom_array: AtomArray,
 ):
     """
     Auto-detect all small molecules in the AtomArray and add bonds to
@@ -77,7 +78,7 @@ def add_bonds_to_organic(
 
     Examples
     --------
-    >>> from biotite.structure import AtomArray
+    >>> from biorazer.structure.objects import AtomArray
     >>> array = AtomArray(4)
     >>> array.res_name = ["HEM", "HEM", "HEM", "HEM"]
     >>> array.atom_name = ["FE", "NB", "C1A", "C2A"]
@@ -91,7 +92,7 @@ def add_bonds_to_organic(
         return atom_array
 
     if atom_array.bonds is None:
-        atom_array.bonds = bio_struct.BondList(len(atom_array))
+        atom_array.bonds = BondList(len(atom_array))
 
     has_hetero = "hetero" in atom_array.get_annotation_categories()
     # Cache CCD lookups, as the same ligand often occurs multiple times

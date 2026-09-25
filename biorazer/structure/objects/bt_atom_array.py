@@ -1,14 +1,16 @@
-"""External object re-exports for :mod:`biorazer.structure.objects`.
+"""biotite's ``AtomArray`` / ``AtomArrayStack``, re-exported for the object layer.
 
-This package composes the "object" layer of ``biorazer.structure``.  The
-convention (user-established) is that third-party structure objects are
-imported here, in :mod:`.external`, and composed/used by the modules in this
-package -- other modules inside :mod:`biorazer.structure` should import those
-objects from here (or from the individual ``objects`` submodules) instead of
-importing the third-party library (biotite) directly.
+``AtomArray`` is biorazer's core structure object: one flat array of atoms (a
+record per row, annotations as parallel arrays) plus optional bonds.  The
+convention (user-established) is that the third-party structure objects are
+imported once, here inside :mod:`biorazer.structure.objects`, and composed by
+the rest of the package -- every other module imports them from
+``biorazer.structure.objects`` instead of importing biotite directly.  That
+keeps the surface of the third-party dependency in one place and makes it
+visible in one file which object is in use.
 
-This keeps the surface of third-party dependencies on one place and makes the
-packages below reusable without re-binding biotite symbols.
+``AtomArrayStack`` (the multi-model variant) is re-exported alongside it, but
+nothing in biorazer uses it yet.
 """
 
 from biotite.structure import AtomArray, AtomArrayStack

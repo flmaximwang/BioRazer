@@ -4,16 +4,16 @@ from pathlib import Path
 import numpy as np
 
 from rdkit import Chem
-from rdkit.Chem import Mol, SDWriter
+from rdkit.Chem import SDWriter
 
 from biotite.structure.io import pdb, pdbx
 from biotite.structure.io.mol import SDFile, set_structure
 import biotite.structure as bio_struc
-from biotite.structure import AtomArray, BondList
 import biotite.sequence as bio_seq
 
 from biorazer.io import Converter
 from biorazer.sequence.io import StrDict_Fasta
+from biorazer.structure.objects import AtomArray, BondList, BondType, Mol
 
 warnings.filterwarnings(
     "ignore",
@@ -37,7 +37,7 @@ def _sdf_block(tmp: AtomArray) -> str:
     if tmp.bonds is None:
         tmp = tmp.copy()
         tmp.bonds = bio_struc.connect_via_distances(
-            tmp, default_bond_type=bio_struc.BondType.SINGLE
+            tmp, default_bond_type=BondType.SINGLE
         )
     sdf = SDFile()
     set_structure(sdf, tmp, record_name="")
@@ -60,7 +60,7 @@ class Cif_AtomArray(Converter):
         x = cif_file.block["chem_comp_atom"]["pdbx_model_Cartn_x_ideal"].data.array
         y = cif_file.block["chem_comp_atom"]["pdbx_model_Cartn_y_ideal"].data.array
         z = cif_file.block["chem_comp_atom"]["pdbx_model_Cartn_z_ideal"].data.array
-        structure = bio_struc.AtomArray(len(name))
+        structure = AtomArray(len(name))
         structure.add_annotation("charge", dtype=int)
         structure.res_name = resn
         structure.atom_name = name

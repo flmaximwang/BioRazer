@@ -7,9 +7,10 @@ PDB writer does not produce.
 """
 
 import numpy as np
-from biotite.structure import AtomArray
 import biotite.structure as bio_struc
 from biotite.structure.io.pdb.hybrid36 import encode_hybrid36
+
+from biorazer.structure.objects import AtomArray
 
 
 # Same limit as biotite's PDB writer (_PDB_MAX_RESIDUES), so that the

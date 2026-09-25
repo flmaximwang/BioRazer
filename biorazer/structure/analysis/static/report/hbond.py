@@ -1,4 +1,5 @@
 import numpy as np
+from biorazer.structure.objects import AtomArray
 from biotite import structure as bio_struct
 from biorazer.display import print_with_decoration, print_decoration_line
 from biorazer.structure.util.report import _to_pymol_atom_selector
@@ -8,7 +9,7 @@ from .. import check
 
 
 def report_hbonds(
-    atom_array: bio_struct.AtomArray,
+    atom_array: AtomArray,
     selection1,
     selection2,
     fmt="pymol",
@@ -80,7 +81,7 @@ def report_hbonds(
 
 
 def report_buried_unsat_hbonds(
-    atom_array: bio_struct.AtomArray,
+    atom_array: AtomArray,
     selection1,
     selection2,
     fmt="pymol",
@@ -92,7 +93,7 @@ def report_buried_unsat_hbonds(
 
     Parameters
     ----------
-    atom_array : bio_struct.AtomArray
+    atom_array : AtomArray
         The biotite structure array containing the atoms.
     selection1 : np.ndarray
         The atom mask for the 1st selection.

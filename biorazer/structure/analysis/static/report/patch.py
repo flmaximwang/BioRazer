@@ -3,7 +3,7 @@ from __future__ import annotations
 from collections import defaultdict
 
 import numpy as np
-import biotite.structure as bio_struct
+from biorazer.structure.objects import AtomArray
 import biotite.sequence as bio_seq
 from scipy.spatial import KDTree
 
@@ -16,7 +16,7 @@ from .util import _normalize_fmt
 BACKBONE_ATOM_NAMES = {"N", "CA", "C", "O", "OXT"}
 
 
-def _iter_residue_masks(structure: bio_struct.AtomArray):
+def _iter_residue_masks(structure: AtomArray):
     if len(structure) == 0:
         return
 
@@ -63,7 +63,7 @@ def _is_target_sidechain_heavy_atom(atom, exclude_elements: set[str]) -> bool:
 
 
 def _collect_surface_patch_atoms(
-    structure: bio_struct.AtomArray,
+    structure: AtomArray,
     target_aas: str,
     surface_atom_threshold: float,
     probe_radius: float,
@@ -310,7 +310,7 @@ def _report_patch_output(
 
 
 def report_surface_patch(
-    structure: bio_struct.AtomArray,
+    structure: AtomArray,
     target_aas: str,
     patch_name: str,
     surface_atom_threshold: float = 0.25,
@@ -331,7 +331,7 @@ def report_surface_patch(
 
     Parameters
     ----------
-    structure : bio_struct.AtomArray
+    structure : AtomArray
         Input structure used for SASA calculation and patch clustering.
     target_aas : str
         One-letter amino-acid codes whose sidechain heavy atoms are included in the
@@ -399,7 +399,7 @@ def report_surface_patch(
 
 
 def report_hydropohbic_patch(
-    structure: bio_struct.AtomArray,
+    structure: AtomArray,
     surface_atom_threshold: float = 0.25,
     cluster_distance_threshold: float = 5.0,
     min_patch_size: int = 5,
@@ -434,7 +434,7 @@ def report_hydropohbic_patch(
 
 
 def report_charged_patch(
-    structure: bio_struct.AtomArray,
+    structure: AtomArray,
     surface_atom_threshold: float = 0.25,
     cluster_distance_threshold: float = 5.0,
     min_patch_size: int = 5,

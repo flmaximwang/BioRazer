@@ -4,7 +4,7 @@ from pathlib import Path
 
 import numpy as np
 from scipy.spatial import KDTree
-from biotite import structure as bio_struct
+from biorazer.structure.objects import AtomArray
 from biorazer.display import print_with_decoration, print_decoration_line
 from biorazer.structure.io.protein import Cif_AtomArray, Pdb_AtomArray
 from biorazer.structure.selection.mask.report import report_mask_by_res
@@ -40,7 +40,7 @@ def _iter_residue_masks(atom_array):
 
 
 def report_interface_residues(
-    atom_array: bio_struct.AtomArray,
+    atom_array: AtomArray,
     selection1,
     selection2,
     distance_cutoff=3.5,
@@ -92,7 +92,7 @@ def report_interface_residues(
 
 
 def report_interface_dSASA(
-    atom_array: bio_struct.AtomArray,
+    atom_array: AtomArray,
     selection1,
     selection2,
     distance_cutoff=3.5,
@@ -114,7 +114,7 @@ def report_interface_dSASA(
 
     Parameters
     ----------
-    atom_array : bio_struct.AtomArray
+    atom_array : AtomArray
         The structure containing both selections.
     selection1, selection2
         Atom selections understood by ``normalize_selection()``.
@@ -229,7 +229,7 @@ def report_interface_dSASA(
 
 
 def report_interface_contact_matrix(
-    atom_array: bio_struct.AtomArray,
+    atom_array: AtomArray,
     selection1,
     selection2,
     distance_cutoff=3.5,
@@ -242,7 +242,7 @@ def report_interface_contact_matrix(
 
     Parameters
     ----------
-    atom_array : bio_struct.AtomArray
+    atom_array : AtomArray
         The structure containing both selections.
     selection1, selection2
         Atom selections understood by ``normalize_selection()``.
@@ -369,7 +369,7 @@ def report_interface_contact_matrix(
 
 
 def report_intra_steric_clashes(
-    atom_array: bio_struct.AtomArray,
+    atom_array: AtomArray,
     selection=None,
     cutoff=1.2,
     fmt="pymol",
@@ -446,7 +446,7 @@ def report_intra_steric_clashes(
 
 
 def report_inter_steric_clashes(
-    atom_array: bio_struct.AtomArray,
+    atom_array: AtomArray,
     selection1,
     selection2,
     cutoff=1.2,

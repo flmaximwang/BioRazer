@@ -1,5 +1,5 @@
 import numpy as np
-import biotite.structure as bio_struct
+from biorazer.structure.objects import AtomArray
 import biotite.sequence as bio_seq
 from .. import report
 from ....selection.mask import complex
@@ -11,7 +11,7 @@ Multiple calculation can be performed on a same array to return multiple scalar 
 """
 
 
-def _normalize_sum_aas(sum_aas: str, atom_array: bio_struct.AtomArray):
+def _normalize_sum_aas(sum_aas: str, atom_array: AtomArray):
     """
     Return a list of three-letter amino acid codes corresponding to the specified sum_aas.
     """
@@ -30,7 +30,7 @@ def _normalize_sum_aas(sum_aas: str, atom_array: bio_struct.AtomArray):
 
 
 def sasa_value(
-    atom_array: bio_struct.AtomArray,
+    atom_array: AtomArray,
     probe_radius=1.4,
     atom_filter=None,
     ignore_ions=True,

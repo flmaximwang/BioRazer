@@ -3,10 +3,11 @@ This module provides functions to convert core data structures across different 
 """
 
 import biotite.sequence as bt_seq
+from biorazer.structure.objects import AtomArray
 import biotite.structure as bt_struct
 
 
-def _chain_structure_to_sequence(chain_structure: bt_struct.AtomArray):
+def _chain_structure_to_sequence(chain_structure: AtomArray):
     """
     Currently this function only supports conversion to ProteinSequence.
     For NucleotideSequence support, additional logic is needed to identify nucleotide residues.
@@ -27,13 +28,13 @@ def _chain_structure_to_sequence(chain_structure: bt_struct.AtomArray):
         raise ValueError("Chain structure contains mixed or unknown residue types")
 
 
-def structure2sequence(structure: bt_struct.AtomArray):
+def structure2sequence(structure: AtomArray):
     """
     Convert a biotite.structure.AtomArray to a biotite.sequence.ProteinSequence
     or biotite.sequence.NucleotideSequence depending on the content of the structure.
     """
 
-    if not isinstance(structure, bt_struct.AtomArray):
+    if not isinstance(structure, AtomArray):
         raise TypeError("Input must be a biotite.structure.AtomArray")
 
     result = {}

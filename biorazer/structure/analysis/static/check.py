@@ -80,7 +80,7 @@ def is_hydrided(atom_array):
 
     Parameters
     ----------
-    atom_array : bio_struct.AtomArray
+    atom_array : AtomArray
         The biotite structure array containing the atoms.
 
     Returns
