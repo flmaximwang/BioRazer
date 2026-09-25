@@ -18,3 +18,12 @@ def _written_text(output_io):
 def _io_target(output_io):
     """Bio.PDB PDBIO/MMCIFIO accept a str filename or a file object (not a Path)."""
     return str(output_io) if isinstance(output_io, Path) else output_io
+
+
+def _write_text(output_io, text: str) -> None:
+    """Write ``text`` to a ``str``/``Path`` file path or an ``io.StringIO``."""
+    if isinstance(output_io, io.StringIO):
+        output_io.write(text)
+    else:
+        with open(output_io, "w") as file:
+            file.write(text)

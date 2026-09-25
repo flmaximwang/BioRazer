@@ -8,7 +8,15 @@ PDB writer does not produce.
 
 import numpy as np
 import biotite.structure as bio_struc
-from biotite.structure.io.pdb.hybrid36 import encode_hybrid36
+
+try:  # biotite < 1.7
+    from biotite.structure.io.pdb.hybrid36 import encode_hybrid36
+except ImportError:  # biotite >= 1.7: hybrid-36 moved into the Rust layer
+    # Same function, same output for every in-range value (checked against
+    # 1.6.0), just relocated -- ``biotite.structure.io.pdb`` no longer has a
+    # ``hybrid36`` module and ``encode_hybrid36`` now lives beside
+    # ``max_hybrid36_number`` in the extension that the PDB writer itself uses.
+    from biotite.rust.structure.io.pdb import encode_hybrid36
 
 from biorazer.structure.objects import AtomArray
 

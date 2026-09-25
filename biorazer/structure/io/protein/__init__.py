@@ -13,6 +13,8 @@ modules by concern:
   optional dependency).
 """
 
+import io
+
 from biotite.structure.io import pdb, pdbx
 import biotite.structure as bio_struc
 from biorazer.database.alphabet import AMINO_ACIDS_3TO1_UPPER
@@ -20,7 +22,7 @@ from biorazer.io import Converter
 from biorazer.structure.objects import AtomArray
 
 from ._pdb_records import _format_link_records, _format_ssbond_records, _inject_seg_ids
-from ._io import _io_target, _written_text
+from ._io import _io_target, _write_text, _written_text
 from ._icchain import (
     MMCIFIO,
     MMCIFParser,
@@ -60,13 +62,23 @@ class AtomArray_Pdb(Converter):
         """
         output_file_obj = pdb.PDBFile()
         pdb.set_structure(output_file_obj, tmp, hybrid36=hybrid36)
+        # Serialise first and edit the *text*: from biotite 1.7 on,
+        # ``PDBFile`` is backed by the Rust implementation, where ``lines``
+        # is a read-only copy -- appending the LINK/SSBOND records to it, or
+        # editing it in place for the SEGID columns, is silently discarded
+        # (no exception, records just do not appear).
+        buffer = io.StringIO()
+        output_file_obj.write(buffer)
+        lines = buffer.getvalue().splitlines()
         if tmp.bonds is not None and tmp.coord.ndim == 2:
-            output_file_obj.lines.extend(
+            lines.extend(
                 _format_link_records(tmp, hybrid36)
                 + _format_ssbond_records(tmp, hybrid36)
             )
-        _inject_seg_ids(output_file_obj.lines, tmp)
-        output_file_obj.write(self.output_io)
+        _inject_seg_ids(lines, tmp)
+        # End with exactly one newline on either biotite version: 1.6 closes
+        # the file with a newline, 1.7 leaves the last record unterminated.
+        _write_text(self.output_io, "\n".join(lines) + "\n")
 
 
 class Pdb_StrDict(Converter):
