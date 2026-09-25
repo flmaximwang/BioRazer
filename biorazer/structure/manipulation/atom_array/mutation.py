@@ -161,7 +161,7 @@ def ss_from_phi_psi(phi: float, psi: float, tol: float = 30.0) -> str:
     'alpha-helix'
     >>> ss_from_phi_psi(-120, 130)
     'beta-strand'
-    >>> ss_from_phi_psi(80, -170)
+    >>> ss_from_phi_psi(-75, 145)
     'polyproline-II'
     >>> ss_from_phi_psi(0, 0)
     'coil'
