@@ -23,6 +23,17 @@ classifiers = [
 packages = [
     { include = "biorazer" },
 ]
+# ``scripts/build.py`` (the ``[tool.poetry.build]`` hook) compiles this
+# extension into the source tree, but poetry-core drops every file that git
+# ignores when the build happens inside a checkout -- and .gitignore lists
+# ``*.so``.  CI builds in a checkout, so the wheel was assembled without the
+# extension and ``auditwheel`` then refused it ("no ELF ... in the wheel
+# archive").  An explicit include is subtracted from the ignored set
+# (``poetry.core.masonry.builders.builder.find_excluded_files``); the sdist
+# keeps shipping only the ``.pyx``.
+include = [
+    { path = "biorazer/structure/util/geometry/sphere/*.so", format = ["wheel"] },
+]
 
 [tool.poetry.urls]
 Homepage = "https://github.com/flmaximwang/BioRazer"
