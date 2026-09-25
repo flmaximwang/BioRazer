@@ -56,6 +56,22 @@ def build():
     for output in cmd.get_outputs():
         output_path = Path(output)
         relative_extension_path = output_path.relative_to(cmd.build_lib)
+
+        # Drop compiled artifacts of this extension that belong to another
+        # interpreter.  They would be picked up by the `*.so` / `*.pyd`
+        # includes in pyproject.toml and shipped inside a wheel for the wrong
+        # Python -- building cp311 and then cp312 in the same checkout (what
+        # cibuildwheel does) put a cp311 .so into the cp312 wheel.
+        for stale in relative_extension_path.parent.glob(
+            f"{relative_extension_path.name.split('.')[0]}.*"
+        ):
+            if stale.name != relative_extension_path.name and stale.suffix in {
+                ".so",
+                ".pyd",
+                ".dylib",
+            }:
+                stale.unlink()
+
         shutil.copyfile(output_path, relative_extension_path)
         mode = os.stat(relative_extension_path).st_mode
         mode |= (mode & 0o444) >> 2  # Copy R bits to X
