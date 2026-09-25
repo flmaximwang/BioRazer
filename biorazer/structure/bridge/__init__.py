@@ -10,6 +10,8 @@ themselves carry no ``from_a`` / ``to_b`` methods (see
   biorazer ``InternalCoord``.
 - :mod:`~biorazer.structure.bridge.icchain` -- biopython ``Structure``
   (SMCRA) <-> biopython ``IC_Chain``.
+- :mod:`~biorazer.structure.bridge.sequence` -- biotite ``AtomArray`` ->
+  biotite ``ProteinSequence``.
 """
 
 from biorazer.structure.bridge.atom_array import (
@@ -17,10 +19,12 @@ from biorazer.structure.bridge.atom_array import (
     InternalCoord_AtomArray,
 )
 from biorazer.structure.bridge.icchain import ICChain_SMCRA, SMCRA_ICChain
+from biorazer.structure.bridge.sequence import AtomArray_ProteinSequence
 
 __all__ = [
     "AtomArray_InternalCoord",
     "InternalCoord_AtomArray",
     "SMCRA_ICChain",
     "ICChain_SMCRA",
+    "AtomArray_ProteinSequence",
 ]
