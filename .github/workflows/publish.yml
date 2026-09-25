@@ -1,7 +1,7 @@
 name: publish
 
 # 发布流水线: 打 tag (vX.Y.Z) 即触发。
-# 流程: 测试 -> 构建 (sdist + Linux/macOS/Windows wheels, 各一条腿) -> Trusted Publishing 上传 PyPI。
+# 流程: 测试 -> 构建 (sdist + 四条腿: Linux x86_64 / macOS arm64 / macOS Intel / Windows AMD64) -> Trusted Publishing 上传 PyPI。
 #
 # 前置条件 (一次性, 在 PyPI 配置):
 #   1. 在 https://pypi.org/manage/account/publishing/ 添加 Trusted Publisher:
@@ -52,15 +52,21 @@ jobs:
     name: build (${{ matrix.os }})
     runs-on: ${{ matrix.os }}
     strategy:
-      # One entry per OS: cibuildwheel can only build wheels for the platform
-      # it runs on, so macOS and Windows wheels need their own runners.
+      # One entry per OS (and per Mac architecture): cibuildwheel can only
+      # build wheels for the platform it runs on, and the macOS arch must match
+      # the runner's -- poetry-core derives the wheel's platform tag from
+      # packaging.tags, which reads the *host* architecture and ignores the
+      # _PYTHON_HOST_PLATFORM that cibuildwheel sets for cross-compilation, so
+      # a cross-built x86_64 wheel is named arm64 and delocate then refuses it.
       fail-fast: false
       matrix:
         include:
           - os: ubuntu-latest
             archs: "x86_64"
-          - os: macos-latest        # arm64 runner; x86_64 wheels are cross-compiled
-            archs: "arm64 x86_64"
+          - os: macos-latest      # M1 runner: arm64
+            archs: "arm64"
+          - os: macos-15-intel    # Intel runner: native x86_64
+            archs: "x86_64"
           - os: windows-latest
             archs: "AMD64"
     steps:
@@ -87,11 +93,9 @@ jobs:
           # error"); using them needs docker/setup-qemu-action (slow) or a
           # native ARM runner.  Linux/ARM installs the sdist instead.
           CIBW_ARCHS: ${{ matrix.archs }}
-          # The test job already covers the suite.  Beyond that, a cross-compiled
-          # x86_64 macOS wheel needs Rosetta to be tested on an arm64 runner,
-          # which depends on the runner image, so it is skipped rather than
-          # gambled on.
-          CIBW_TEST_SKIP: "cp312-* *-macosx_x86_64"
+          # The test job already covers the suite; the cp312 wheels skip the
+          # in-container run to keep the build quick.
+          CIBW_TEST_SKIP: "cp312-*"
 
       - uses: actions/upload-artifact@v4
         with:
