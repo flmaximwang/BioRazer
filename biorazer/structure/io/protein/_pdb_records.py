@@ -40,7 +40,11 @@ def _format_pdb_atom_name(atom_name: str, element: str) -> str:
 def _format_pdb_res_id(res_id: int, hybrid36: bool) -> str:
     """Format a residue sequence number exactly like the ATOM records."""
     if hybrid36:
-        return encode_hybrid36(res_id, 4)
+        # ``encode_hybrid36`` returns an unpadded string ('10', not '  10'),
+        # so the field has to be padded here: biotite right-justifies it the
+        # same way in the ATOM records, and an unpadded value shifts every
+        # column after it (4 columns wide, per the PDB format).
+        return f"{encode_hybrid36(res_id, 4):>4}"
     if res_id > 0:
         res_id = ((res_id - 1) % _PDB_MAX_RESIDUES) + 1
     return f"{res_id:>4}"

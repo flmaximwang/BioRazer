@@ -88,3 +88,29 @@ class TestAtomArrayPdbRecords:
         """biotite 1.6 terminates the last record, 1.7 does not."""
         text = _write(_cys_cys_hem())
         assert text.endswith("\n") and not text.endswith("\n\n")
+
+    def test_keeps_the_record_columns_when_hybrid36_is_on(self):
+        """resSeq is right-justified in a 4-column field, as in ATOM records.
+
+        ``encode_hybrid36`` returns an unpadded string ('10', not '  10'), so
+        the LINK/SSBOND records used to be shorter than the ATOM records and
+        every column after the resSeq field was shifted left.
+        """
+        plain = _write(_cys_cys_hem(), hybrid36=False)
+        hybrid = _write(_cys_cys_hem(), hybrid36=True)
+        for prefix in ("LINK", "SSBOND"):
+            assert len(_records(hybrid, prefix)[0]) == len(_records(plain, prefix)[0])
+        # protein side of LINK, then the ligand side
+        assert _records(hybrid, "LINK")[0][22:26] == "  10"
+        assert _records(hybrid, "LINK")[0][52:56] == "   1"
+        # both cysteines of the SSBOND
+        assert _records(hybrid, "SSBOND")[0][17:21] == "  10"
+        assert _records(hybrid, "SSBOND")[0][31:35] == "  11"
+
+    def test_keeps_the_record_columns_in_the_hybrid_letter_range(self):
+        """Above 9999 hybrid-36 goes to letters: 'A000', 'A001', ..."""
+        hybrid = _write(_cys_cys_hem(res_id=10000), hybrid36=True)
+        assert _records(hybrid, "LINK")[0][22:26] == "A000"
+        assert _records(hybrid, "LINK")[0][52:56] == "   1"
+        assert _records(hybrid, "SSBOND")[0][17:21] == "A000"
+        assert _records(hybrid, "SSBOND")[0][31:35] == "A001"
