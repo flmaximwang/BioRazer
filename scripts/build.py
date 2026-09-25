@@ -1,16 +1,29 @@
 from __future__ import annotations
 
-import os, shutil
+import os, shutil, sys
 from pathlib import Path
 from Cython.Build import cythonize
 from setuptools import Extension, Distribution
 from setuptools.command.build_ext import build_ext
 import numpy as np
 
-COMPILE_ARGS = ["-O3", "-ffast-math"]
-LINK_ARGS = []
-INCLUDE_DIRS = []
-LIBRARIES = ["m"]
+
+def compile_settings(platform: str) -> tuple[list[str], list[str]]:
+    """(extra_compile_args, libraries) for ``platform`` (``sys.platform``).
+
+    MSVC (Windows) takes ``/O2`` and ``/fp:fast``, not ``-O3 -ffast-math``, and
+    has no separate ``libm`` -- the math functions live in the CRT.  Linking
+    ``m`` there fails, so the library is only requested where it exists.
+    """
+    if platform == "win32":
+        return ["/O2", "/fp:fast"], []
+    return ["-O3", "-ffast-math"], ["m"]
+
+
+COMPILE_ARGS, LIBRARIES = compile_settings(sys.platform)
+LINK_ARGS: list[str] = []
+INCLUDE_DIRS: list[str] = []
+
 
 
 def build():
