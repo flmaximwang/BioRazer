@@ -106,7 +106,7 @@ __all__ = [
 #: 肽键 ``C-N`` 理想键长 (**A**)。判"这真的是相邻残基的 N/C 吗"用的期望值。
 _PEPTIDE_CN = float(AMINO_ACID_BOND_LENGTH[("C", "N")]["mean"])
 #: 肽键 ``C-N`` 的键长上界 (**A**)。超过它就不是肽键 —— 链断或传错残基。
-#: 与 ``InternalCoord.from_atomarray`` 的 peptide 环节用**同一个**判据, 不另立阈值。
+#: 与 ``AtomArray_InternalCoord`` (``structure.bridge``) 的 peptide 环节用**同一个**判据, 不另立阈值。
 _MAX_PEPTIDE_CN = float(AMINO_ACID_BOND_LENGTH[("C", "N")]["up"])
 
 #: rotamer 库来源 -> 读取函数名 (惰性 import, 免得只为读一个库就把重依赖拉起来)
@@ -209,7 +209,7 @@ def _backbone_neighbours(arr, groups, key):
 
     号相邻**还不够**: 重编号过的链、``TER`` 断口、或传错的残基都可能号相邻而
     肽键不成立。所以这里再量一次 ``C-N`` 距离, 超过键长表上界
-    (``_MAX_PEPTIDE_CN``, 与 ``InternalCoord.from_atomarray`` 同一判据) 就当作
+    (``_MAX_PEPTIDE_CN``, 与 ``AtomArray_InternalCoord`` 同一判据) 就当作
     没有邻居。这条现在是硬要求: ``next_n`` 会被 :func:`build_side_chain` 直接
     用来**精确**定位羰基 ``O``, 假的邻居会给出假的肽平面, 比退回 ``ss`` 均值更糟。
 

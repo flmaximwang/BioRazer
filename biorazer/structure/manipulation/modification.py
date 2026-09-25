@@ -521,9 +521,9 @@ def connect_internal_coords(
     n = N_index + offset          # amide N of the C-terminal fragment
 
     # The seam dihedral (CA, C, N, CA) grows the C-terminal residue's CA,
-    # which needs that residue's N-CA bond.  from_atomarray omits the
-    # first residue's N-CA (it seeds the anchor), so fill it from the
-    # anchor coordinates when missing.
+    # which needs that residue's N-CA bond.  The read path
+    # (``AtomArray_InternalCoord``) omits the first residue's N-CA (it seeds
+    # the anchor), so fill it from the anchor coordinates when missing.
     if (n, ca_ct + offset) not in out.bond_distances:
         n_xyz = out.anchor.get(n)
         ca_xyz = out.anchor.get(ca_ct + offset)

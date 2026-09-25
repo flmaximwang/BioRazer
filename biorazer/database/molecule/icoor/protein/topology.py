@@ -1,11 +1,11 @@
 # -*- coding: utf-8 -*-
 """Protein internal-coordinate (grow-path) topology.
 
-This is the **canonical home** of the per-residue side-chain IC topology,
-shared by the read path (``InternalCoord.from_atomarray`` in
-``biorazer/structure/objects/internal_coords.py``) and the write path
-(``biorazer.database.molecule.icoor.protein.template``).  (It was originally
-authored as ``biorazer/database/amino_acid_internal_coords.py``, then
+This is the **canonical home** of the per-residue side-chain IC topology, shared
+by the read path
+(:class:`~biorazer.structure.bridge.atom_array.AtomArray_InternalCoord`) and the
+write path (``biorazer.database.molecule.icoor.protein.template``).  (It was
+originally authored as ``biorazer/database/amino_acid_internal_coords.py``, then
 ``internal_coord_template/_topology.py``.)
 
 The main chain (backbone) of a protein is a **uniform** polymer walk
@@ -14,8 +14,8 @@ every residue follows the same path, so unlike the side chain it is not a
 per-residue table.  Its grow specs are recorded once in
 :data:`BACKBONE_IC_PATH` (grouped into per-residue ``intra`` carbonyl
 branches and cross-residue ``peptide`` links), which both the read path
-(``InternalCoord.from_atomarray``) and the write path (the template
-builder) consume.
+(:class:`~biorazer.structure.bridge.atom_array.AtomArray_InternalCoord`) and
+the write path (the template builder) consume.
 
 The side chain, by contrast, is **different for each amino acid**: a tree
 grafted at ``CA``, whose branching is described by the official chi
@@ -79,7 +79,8 @@ MAINCHAIN_ATOMS = frozenset(("N", "CA", "C", "O", "OXT"))
 #: * ``"peptide"`` -- cross-residue quads linking residue ``i`` to ``i+1``,
 #:   with atom names subscripted ``_i`` (current residue) / ``_{i+1}``
 #:   (next residue).  These are the main-chain pass of
-#:   ``InternalCoord.from_atomarray``: each quad grows one atom of residue
+#:   :class:`~biorazer.structure.bridge.atom_array.AtomArray_InternalCoord`:
+#:   each quad grows one atom of residue
 #:   ``i+1`` from the ``(i, j, k)`` frame spanning the peptide bond.  The
 #:   quads are listed in the **official torsion order** of
 #:   :data:`~biorazer.database.molecule.bond.dihedral.protein.ALIAS_QUAD`
@@ -104,8 +105,8 @@ def carbonyl_o_dihedral(psi: float) -> float:
     """羰基 ``O`` 的放置二面角 ``(N, CA, C, O)`` —— 由羰基碳 C 的 sp2 共面性给出。
 
     **单一定义处**: 模板构建 (:func:`~biorazer.database.molecule.icoor.protein.
-    template.build_template`)、真实结构读入 (:meth:`~biorazer.structure.objects.
-    internal_coords.InternalCoord.from_atomarray`) 与真实骨架上的重建
+    template.build_template`)、真实结构读入 (:class:`~biorazer.structure.bridge.
+    atom_array.AtomArray_InternalCoord`) 与真实骨架上的重建
     (:func:`~biorazer.structure.manipulation.mutation.build_side_chain`) 都调用
     这里, 不要各自再写一份 ``- 180``。
 

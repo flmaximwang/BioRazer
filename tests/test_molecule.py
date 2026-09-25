@@ -10,7 +10,7 @@ into ``biorazer/database/molecule``:
 * every numeric entry carries the uniform ``{mean, std, lb, up, source}``
   record (missing spread = ``np.nan``);
 * the migrated values are unchanged from the pre-move data;
-* templates still build and round-trip (``to_atomarray``);
+* templates still build and convert to an ``AtomArray`` (bridge);
 * the old import paths raise ModuleNotFoundError.
 """
 
@@ -417,22 +417,26 @@ class TestTemplates:
 
     def test_build_and_to_atomarray(self):
         from biorazer.database.molecule.icoor.protein import template
+        from biorazer.structure.bridge import InternalCoord_AtomArray
         ic, spec = template.build_template("SER", "alpha-helix", "g-")
         assert spec.resn == "SER"
         assert spec.phi == -60.0 and spec.psi == -45.0 and spec.omega == 180.0
         assert spec.rotamer == "g-" and spec.ss == "alpha-helix"
-        arr = ic.to_atomarray()
+        arr = InternalCoord_AtomArray(input_io=ic).convert()
         assert len(arr) == len(ic.atoms)
         names = set(arr.atom_name)
         assert {"N", "CA", "C", "O", "CB", "OG"} <= names
 
     def test_templates_round_trip(self):
-        # to_coords -> from_atomarray must reproduce the template geometry
+        # to_coords -> the read path must reproduce the template geometry
         from biorazer.database.molecule.icoor.protein import template
-        from biorazer.structure.objects.internal_coords import InternalCoord
+        from biorazer.structure.bridge import (
+            AtomArray_InternalCoord,
+            InternalCoord_AtomArray,
+        )
         ic, _ = template.build_template("TRP", "beta-strand")
-        arr = ic.to_atomarray()
-        ic2 = InternalCoord.from_atomarray(arr)
+        arr = InternalCoord_AtomArray(input_io=ic).convert()
+        ic2 = AtomArray_InternalCoord(input_io=arr).convert()
         # anchors identical (the IC frame is preserved)
         for k, v in ic.anchor.items():
             assert np.allclose(v, ic2.anchor[k], atol=1e-6)

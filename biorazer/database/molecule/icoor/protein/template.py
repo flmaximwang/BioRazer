@@ -255,8 +255,8 @@ class TemplateSpec:
     **inputs**, and ``phi``/``psi``/``omega`` are the SS-class means the build
     used to place the carbonyl ``O``.  None of the five is a property of the
     returned coordinate set -- a multi-residue ``InternalCoord``
-    (``from_atomarray`` / ``connect_internal_coords``) has no single value for
-    them, which is exactly why they must not live on the container.
+    (``AtomArray_InternalCoord`` / ``connect_internal_coords``) has no single
+    value for them, which is exactly why they must not live on the container.
 
     Fields
     ------
