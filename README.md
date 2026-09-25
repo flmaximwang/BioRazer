@@ -20,7 +20,7 @@ pip install biorazer
 ### Dependencies
 
 - Python >= 3.11
-- biotite, numpy, scipy, matplotlib, hydride, umap-learn, rcsb-api
+- biotite, numpy, scipy, matplotlib, hydride, rcsb-api
 - tabulate (for formatted output)
 
 ### Development
