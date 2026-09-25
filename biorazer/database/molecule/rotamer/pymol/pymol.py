@@ -21,6 +21,11 @@ PyMOL **自带**一份 Dunbrack rotamer 库, 无需另行下载。它随 PyMOL �
     os.environ['PYMOL_DATA'] + "/chempy/sidechains/sc_bb_ind.pkl"
     os.environ['PYMOL_DATA'] + "/chempy/sidechains/sc_bb_dep.pkl"
 
+本模块按同一约定解析该目录: 先 ``$PYMOL_DATA``, 再
+``$CONDA_PREFIX/share/pymol/data`` 与常见安装位置 (见
+:func:`_find_pymol_rotamer_dir`), 都找不到时才退回 macOS 打包版路径 —— 所以
+非 macOS 机器把 ``PYMOL_DATA`` 指向 PyMOL 的 ``data`` 目录就能用同一套 reader。
+
 **实测内容** (HIS, 6VY1 分析时核实):
 
 * ``sc_bb_ind``: 9 个 rotamer, 带 ``FREQ`` 与 chi 四元组 key, 概率和为 1。
@@ -48,6 +53,7 @@ Dun02 中全部能找到且概率一致)。
 
 from __future__ import annotations
 
+import os
 import pickle
 from pathlib import Path
 
@@ -68,10 +74,42 @@ __all__ = [
     "read_pymol_library",
 ]
 
-#: PyMOL rotamer 库所在目录 (macOS 打包版默认路径)
-PYMOL_ROTAMER_DIR = Path(
-    "/Applications/PyMOL.app/Contents/share/pymol/data/chempy/sidechains"
+#: PyMOL 自带的 rotamer 库相对 PyMOL 数据目录的位置 (PyMOL 自己的约定)
+_PYMOL_ROTAMER_SUBPATH = Path("chempy") / "sidechains"
+
+#: PyMOL 的常见安装位置 (各自的 ``data`` 目录); 第 0 项也是旧行为里的默认值
+_PYMOL_DATA_DIRS = (
+    Path("/Applications/PyMOL.app/Contents/share/pymol/data"),  # macOS 打包版
+    Path("/usr/share/pymol/data"),  # Linux 发行版
+    Path("/usr/local/share/pymol/data"),  # /usr/local 安装
+    Path("/opt/homebrew/share/pymol/data"),  # Homebrew (Apple Silicon)
 )
+
+
+def _find_pymol_rotamer_dir() -> Path:
+    """定位 PyMOL 自带的 rotamer 库目录 (``chempy/sidechains``)。
+
+    顺序: ``$PYMOL_DATA`` (PyMOL 自己的约定, 见模块 docstring) →
+    ``$CONDA_PREFIX/share/pymol/data`` → 常见安装位置。设了环境变量但目录不在
+    时继续往下找。全都不在时返回 macOS 打包版路径 —— 与旧行为一致, 好让
+    ``FileNotFoundError`` 里带着一个可读路径。
+    """
+    data_dirs: list[Path] = []
+    if pymol_data := os.environ.get("PYMOL_DATA"):
+        data_dirs.append(Path(pymol_data))
+    if conda_prefix := os.environ.get("CONDA_PREFIX"):
+        data_dirs.append(Path(conda_prefix) / "share" / "pymol" / "data")
+    data_dirs.extend(_PYMOL_DATA_DIRS)
+
+    for data_dir in data_dirs:
+        rotamer_dir = data_dir / _PYMOL_ROTAMER_SUBPATH
+        if rotamer_dir.is_dir():
+            return rotamer_dir
+    return _PYMOL_DATA_DIRS[0] / _PYMOL_ROTAMER_SUBPATH
+
+
+#: PyMOL rotamer 库所在目录 (解析顺序见 :func:`_find_pymol_rotamer_dir`)
+PYMOL_ROTAMER_DIR = _find_pymol_rotamer_dir()
 PYMOL_SC_BB_IND = PYMOL_ROTAMER_DIR / "sc_bb_ind.pkl"
 PYMOL_SC_BB_DEP = PYMOL_ROTAMER_DIR / "sc_bb_dep.pkl"
 PYMOL_SC_LIBRARY = PYMOL_ROTAMER_DIR / "sc_library.pkl"
