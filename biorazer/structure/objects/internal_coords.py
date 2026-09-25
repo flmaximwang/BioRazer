@@ -48,7 +48,7 @@ from __future__ import annotations
 
 import numpy as np
 
-from biorazer.structure.objects.external import AtomArray
+from biorazer.structure.objects.bt_atom_array import AtomArray
 
 
 def _place(B, C, D, blen, bang, dih_deg):

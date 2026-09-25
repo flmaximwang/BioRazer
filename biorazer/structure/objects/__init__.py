@@ -6,11 +6,11 @@ as opposed to the converters in ``biorazer.structure.io`` and the
 analytics / selection / manipulation modules that operate on them.
 
 Third-party structure objects (e.g. biotite's ``AtomArray``) are re-exported
-once, in :mod:`biorazer.structure.objects.external`, and the modules in this
-package build on those instead of importing biotite directly.
+once, in :mod:`biorazer.structure.objects.bt_atom_array`, and the modules in
+this package build on those instead of importing biotite directly.
 """
 
-from biorazer.structure.objects.external import AtomArray, AtomArrayStack
+from biorazer.structure.objects.bt_atom_array import AtomArray, AtomArrayStack
 from biorazer.structure.objects.internal_coords import (
     InternalCoordAtom,
     InternalCoord,
