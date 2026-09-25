@@ -11,7 +11,7 @@ dihedrals that let any atom be reconstructed from a few already-located
 
 Attributes
 ----------
-atoms : list[AtomRecord]
+atoms : list[InternalCoordAtom]
     One entry per atom, carrying PDB-style annotations but no coordinates:
     ``(ins_code, chain_id, res_name, res_id, name, element)``.
 anchor : dict[int, tuple[float,float,float]]
@@ -25,6 +25,18 @@ bond_angles : dict[tuple[int,int,int], float]
     ``{(i,j,k): angle in degree}`` -- angle at atom j between i and k.
 dihedra : dict[tuple[int,int,int,int], float]
     ``{(i,j,k,l): angle in degree}`` -- the dihedral of 4 ordered atoms.
+
+Metadata carried by the **write** paths only (``None`` on an instance read
+from a structure by :meth:`InternalCoord.from_atomarray`); no coordinate is
+derived from any of them:
+
+ss : str | None
+    Secondary-structure class the template was built at.
+phi, psi, omega : float | None
+    The **class-mean** backbone torsions (degree) the template was built
+    from -- a residual attribute for bookkeeping, not a per-atom value.
+rotamer : str | None
+    Rotamer name the template's chi values were taken from.
 
 All angles (``bond_angles`` and ``dihedra``) are in **degree**; only
 ``bond_distances`` is in Angstrom.
@@ -45,6 +57,8 @@ closes consistently).
 """
 
 from __future__ import annotations
+
+from dataclasses import dataclass, field
 
 import numpy as np
 
@@ -125,24 +139,46 @@ def dihedral(p0, p1, p2, p3):
 _dihedral = dihedral
 
 
+@dataclass(repr=False, eq=False, slots=True)
 class InternalCoordAtom:
     """A single atom's PDB-style annotation (no coordinates).
 
     Attribute access mirrors an ``AtomArray`` row: ``rec.chain_id = "B"`` etc.
+
+    Fields
+    ------
+    ins_code : str
+        PDB insertion code (``""`` when absent).
+    chain_id : str
+        Chain identifier.
+    res_name : str
+        Three-letter residue name, upper-case (e.g. ``"GLY"``).
+    res_id : int
+        Residue sequence number.
+    name : str
+        Atom name (``"N"``, ``"CA"``, ``"CB"``, ...).
+    element : str | None
+        Element symbol.  ``None`` (the default) derives it from ``name``:
+        its first character when that is ``N``/``O``/``S``, otherwise ``"C"``.
+
+    ``repr=False`` keeps the custom ``__repr__`` below; ``eq=False`` keeps
+    **identity** equality and therefore hashability, because the record is
+    *mutable* (the annotation setters of :class:`InternalCoord` write into
+    it in place) -- a field-based ``__eq__`` would come with
+    ``__hash__ = None`` and break any set/dict use.
     """
 
-    __slots__ = ("ins_code", "chain_id", "res_name", "res_id", "name",
-                 "element")
+    ins_code: str = ""
+    chain_id: str = "A"
+    res_name: str = "GLY"
+    res_id: int = 1
+    name: str = "N"
+    element: str | None = None
 
-    def __init__(self, ins_code="", chain_id="A", res_name="GLY", res_id=1,
-                 name="N", element=None):
-        self.ins_code = ins_code
-        self.chain_id = chain_id
-        self.res_name = res_name
-        self.res_id = res_id
-        self.name = name
-        self.element = (element if element is not None
-                        else (name[0] if name[0] in ("N", "O", "S") else "C"))
+    def __post_init__(self):
+        if self.element is None:
+            self.element = (self.name[0] if self.name[0] in ("N", "O", "S")
+                            else "C")
 
     @classmethod
     def from_atom(cls, atom_array, index):
@@ -206,19 +242,73 @@ def _annotation_accessor(rec_attr, name, dtype, cast, doc):
     return property(getter, setter, doc=doc)
 
 
+@dataclass(repr=False, eq=False, slots=True)
 class InternalCoord:
     """Internal-coordinate (generative) description of a structure.
 
-    See the module docstring for the exact schema and the grow rule.
+    See the module docstring for the exact schema, the grow rule, and the
+    meaning of each field.
+
+    Fields
+    ------
+    atoms : list[InternalCoordAtom]
+        The atom records (annotations only), in the numbering all the maps
+        below are keyed by.
+    anchor : dict[int, tuple[float, float, float]]
+        ``{atom_index: (x, y, z)}`` -- the atoms that carry absolute
+        coordinates (the growth roots).
+    bond_distances : dict[tuple[int, int], float]
+        ``{(i, j): Angstrom}``.
+    bond_angles : dict[tuple[int, int, int], float]
+        ``{(i, j, k): degree}`` -- angle at ``j``.
+    dihedra : dict[tuple[int, int, int, int], float]
+        ``{(i, j, k, l): degree}`` -- the generative map: ``l`` is grown from
+        the parents ``(i, j, k)``.
+
+    ss : str | None
+    phi, psi, omega : float | None
+    rotamer : str | None
+        Write-path metadata (``build_template`` / ``build_side_chain``), see
+        the module docstring; ``None`` on a structure read from a file.
+
+    ``repr=False`` (a generated repr would dump every atom and map) and
+    ``eq=False`` (the maps and atom records are mutated in place, so
+    identity comparison plus hashability is kept) are deliberate.
+
+    The per-atom annotation views below (``chain_id``, ``res_id``,
+    ``res_name``, ``atom_name``, ``element``, ``ins_code``) are
+    *properties*, not fields: they are numpy views over ``atoms`` for
+    filtering (``ic.chain_id == "A"`` yields a mask).
     """
 
-    def __init__(self, atoms=None, anchor=None, bond_distances=None,
-                 bond_angles=None, dihedra=None):
-        self.atoms = list(atoms) if atoms is not None else []
-        self.anchor = anchor if anchor is not None else {}
-        self.bond_distances = bond_distances if bond_distances is not None else {}
-        self.bond_angles = bond_angles if bond_angles is not None else {}
-        self.dihedra = dihedra if dihedra is not None else {}
+    atoms: list[InternalCoordAtom] = field(default_factory=list)
+    anchor: dict[int, tuple[float, float, float]] = field(default_factory=dict)
+    bond_distances: dict[tuple[int, int], float] = field(default_factory=dict)
+    bond_angles: dict[tuple[int, int, int], float] = field(default_factory=dict)
+    dihedra: dict[tuple[int, int, int, int], float] = field(
+        default_factory=dict)
+    ss: str | None = None
+    phi: float | None = None
+    psi: float | None = None
+    omega: float | None = None
+    rotamer: str | None = None
+
+    def __post_init__(self):
+        """Keep the pre-dataclass container contract.
+
+        ``None`` means "empty" for every map (the old ``__init__`` accepted
+        ``None`` for all five), and ``atoms`` is **copied** so a caller's
+        list is never aliased by the instance.
+        """
+        self.atoms = [] if self.atoms is None else list(self.atoms)
+        if self.anchor is None:
+            self.anchor = {}
+        if self.bond_distances is None:
+            self.bond_distances = {}
+        if self.bond_angles is None:
+            self.bond_angles = {}
+        if self.dihedra is None:
+            self.dihedra = {}
 
     def __len__(self):
         return len(self.atoms)
@@ -495,6 +585,7 @@ class InternalCoord:
                         raise ValueError(
                             f"Inconsistent cycle at atom {l}: {quad} gives "
                             f"{np.round(newcoord, 4)} vs {np.round(pos, 4)}")
+                assert newcoord is not None     # parents_list is never empty
                 if l in placed:
                     if np.linalg.norm(newcoord - coords[l]) > tol:
                         raise ValueError(f"Inconsistent coordinate for atom {l}")
