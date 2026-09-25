@@ -8,7 +8,7 @@ themselves carry no ``from_a`` / ``to_b`` methods (see
 
 - :mod:`~biorazer.structure.bridge.atom_array` -- biotite ``AtomArray`` <->
   biorazer ``InternalCoord``.
-- :mod:`~biorazer.structure.bridge.internal_coords` -- biopython ``Structure``
+- :mod:`~biorazer.structure.bridge.icchain` -- biopython ``Structure``
   (SMCRA) <-> biopython ``IC_Chain``.
 """
 
@@ -16,8 +16,11 @@ from biorazer.structure.bridge.atom_array import (
     AtomArray_InternalCoord,
     InternalCoord_AtomArray,
 )
+from biorazer.structure.bridge.icchain import ICChain_SMCRA, SMCRA_ICChain
 
 __all__ = [
     "AtomArray_InternalCoord",
     "InternalCoord_AtomArray",
+    "SMCRA_ICChain",
+    "ICChain_SMCRA",
 ]

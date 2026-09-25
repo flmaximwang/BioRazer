@@ -22,10 +22,18 @@ The class named ``InternalCoord`` in
 biopython's internal-coordinate object is ``IC_Chain`` -- here and everywhere
 else in the package -- so that ``InternalCoord*`` names never refer to
 biopython's class.
+
+Import paths
+------------
+``Structure`` and ``Model`` are the **classes**, imported from their
+submodules (``Bio.PDB.Structure.Structure`` / ``Bio.PDB.Model.Model``).  Note
+that ``from Bio.PDB import Structure`` would bind the *submodule* of that name,
+not the class, which is why the submodule paths are used here.
 """
 
-from Bio.PDB import Model, Structure
 from Bio.PDB.internal_coords import IC_Chain
+from Bio.PDB.Model import Model
+from Bio.PDB.Structure import Structure
 
 __all__ = [
     "Structure",

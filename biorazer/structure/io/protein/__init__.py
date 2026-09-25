@@ -7,7 +7,8 @@ modules by concern:
 - :mod:`._pdb_records` — PDB LINK/SSBOND/SEGID record writers (used by
   :class:`AtomArray_Pdb`).
 - :mod:`._io` — generic ``str``/``Path``/``io.StringIO`` target helpers.
-- :mod:`._internal_coords` — biopython ``Bio.PDB.internal_coords`` helpers.
+- :mod:`._icchain` — biopython ``IC_Chain`` bridge converters plus the
+  Bio.PDB file parsers/writers the IC_Chain converters need.
 - :mod:`._pose` — PyRosetta Pose helpers (imports stay lazy: PyRosetta is an
   optional dependency).
 """
@@ -20,13 +21,13 @@ from biorazer.structure.objects import AtomArray
 
 from ._pdb_records import _format_link_records, _format_ssbond_records, _inject_seg_ids
 from ._io import _io_target, _written_text
-from ._internal_coords import (
+from ._icchain import (
     MMCIFIO,
     MMCIFParser,
     PDBIO,
     PDBParser,
-    InternalCoord_SMCRA,
-    SMCRA_InternalCoord,
+    ICChain_SMCRA,
+    SMCRA_ICChain,
 )
 from ._pose import _dump_pose, _pose_from_io
 
@@ -108,10 +109,10 @@ class Pdb_StrDict(Converter):
 
 
 # ---------------------------------------------------------------------------
-# Optional-dependency converters: biopython internal coords / PyRosetta Pose
+# Optional-dependency converters: biopython IC_Chain / PyRosetta Pose
 #
 # biopython (Bio.PDB.internal_coords) is a CORE dependency of biorazer, so the
-# internal-coordinate converters are always available. PyRosetta, however, is
+# IC_Chain converters are always available. PyRosetta, however, is
 # NOT a core dependency (it is not on PyPI), so all PyRosetta imports in
 # ``._pose`` are LAZY: importing this package never fails when pyrosetta is
 # missing -- the ImportError is raised only when a Pose converter is actually
@@ -119,7 +120,7 @@ class Pdb_StrDict(Converter):
 # ---------------------------------------------------------------------------
 
 
-class Pdb_InternalCoord(Converter):
+class Pdb_ICChain(Converter):
     """
     Converts a PDB file to biopython's internal-coordinate representation.
 
@@ -132,10 +133,10 @@ class Pdb_InternalCoord(Converter):
     def read(self, **kwargs):
         parser = PDBParser(QUIET=True)
         structure = parser.get_structure("biorazer", self.input_io)
-        return SMCRA_InternalCoord(input_io=structure).convert()
+        return SMCRA_ICChain(input_io=structure).convert()
 
 
-class Cif_InternalCoord(Converter):
+class Cif_ICChain(Converter):
     """
     Converts an mmCIF file to biopython's internal-coordinate representation.
 
@@ -148,36 +149,36 @@ class Cif_InternalCoord(Converter):
     def read(self, **kwargs):
         parser = MMCIFParser(QUIET=True)
         structure = parser.get_structure("biorazer", self.input_io)
-        return SMCRA_InternalCoord(input_io=structure).convert()
+        return SMCRA_ICChain(input_io=structure).convert()
 
 
-class InternalCoord_Pdb(Converter):
+class ICChain_Pdb(Converter):
     """
     Regenerates a PDB file from biopython's internal-coordinate representation.
 
     ``tmp`` is an :class:`Bio.PDB.internal_coords.IC_Chain` or a list of them
-    (as returned by :class:`Pdb_InternalCoord` / :class:`Cif_InternalCoord`).
+    (as returned by :class:`Pdb_ICChain` / :class:`Cif_ICChain`).
     Each chain is rebuilt back to Cartesian coordinates from its
     internal/torsion coordinates via ``internal_to_atom_coordinates`` and the
     chains are written as a single PDB file.
     """
 
     def write(self, tmp, **kwargs):
-        structure = InternalCoord_SMCRA(input_io=tmp).convert()
+        structure = ICChain_SMCRA(input_io=tmp).convert()
         writer = PDBIO()
         writer.set_structure(structure)
         writer.save(_io_target(self.output_io))
         return _written_text(self.output_io)
 
 
-class InternalCoord_Cif(Converter):
+class ICChain_Cif(Converter):
     """
     Regenerates an mmCIF file from biopython's internal-coordinate
-    representation (the inverse of :class:`Cif_InternalCoord`).
+    representation (the inverse of :class:`Cif_ICChain`).
     """
 
     def write(self, tmp, **kwargs):
-        structure = InternalCoord_SMCRA(input_io=tmp).convert()
+        structure = ICChain_SMCRA(input_io=tmp).convert()
         writer = MMCIFIO()
         writer.set_structure(structure)
         writer.save(_io_target(self.output_io))
