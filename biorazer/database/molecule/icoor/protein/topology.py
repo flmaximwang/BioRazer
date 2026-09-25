@@ -107,7 +107,7 @@ def carbonyl_o_dihedral(psi: float) -> float:
     **单一定义处**: 模板构建 (:func:`~biorazer.database.molecule.icoor.protein.
     template.build_template`)、真实结构读入 (:class:`~biorazer.structure.bridge.
     atom_array.AtomArray_InternalCoord`) 与真实骨架上的重建
-    (:func:`~biorazer.structure.manipulation.mutation.build_side_chain`) 都调用
+    (:func:`~biorazer.structure.manipulation.atom_array.mutation.build_side_chain`) 都调用
     这里, 不要各自再写一份 ``- 180``。
 
     推导 (为什么 ``- 180`` 与键角数值无关)

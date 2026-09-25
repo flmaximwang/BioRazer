@@ -2,7 +2,8 @@
 Internal helper functions for structure operations.
 
 The functions in this module are implementation details of the public
-operations in this package (e.g. :func:`composition.replace_side_chains`)
+operations in this package (e.g.
+:func:`~biorazer.structure.manipulation.atom_array.modification.replace_side_chains`)
 and are not part of the public API.
 """
 import numpy as np
@@ -121,7 +122,7 @@ def _selected_residues(groups, mask, mask_label):
     ----------
     groups : dict of tuple -> numpy.ndarray
         Residue-to-atom-index mapping as produced by
-        :func:`biorazer.structure.selector.index.group_atoms_by_residue`.
+        :func:`biorazer.structure.selection.index.annotation.group_atoms_by_residue`.
     mask : numpy.ndarray
         1D boolean mask with one entry per atom of the source atom
         array.

@@ -5,11 +5,11 @@
 ─────────────────────────────────────
 ``modification`` 提供的是零件:
 
-* :func:`~biorazer.structure.manipulation.modification.remove_side_chains` --
+* :func:`~biorazer.structure.manipulation.atom_array.modification.remove_side_chains` --
   把某些残基削成只剩 ``N/CA/C/O`` 的 GLY 骨架;
-* :func:`~biorazer.structure.manipulation.modification.mutate_without_side_chains` --
+* :func:`~biorazer.structure.manipulation.atom_array.modification.mutate_without_side_chains` --
   同上, 但把残基名改成目标类型;
-* :func:`~biorazer.structure.manipulation.modification.replace_side_chains` --
+* :func:`~biorazer.structure.manipulation.atom_array.modification.replace_side_chains` --
   **移植**另一个结构里已有侧链的坐标 (graft)。
 
 本模块补上缺的那一环: **在真实骨架上, 按 rotamer 库给出的连续 chi 值把侧链重建出来**。
@@ -47,7 +47,7 @@
 2. 该残基的 ``psi`` -> 用它 (``psi`` 就是未知 ``N_{i+1}`` 的方位);
 3. 都没有 -> 所属 ``ss`` 类的均值 ``psi`` (模板的默认值, 精确到该类的散布)。
 
-下游再交给 :func:`~biorazer.structure.manipulation.modification.replace_side_chains`
+下游再交给 :func:`~biorazer.structure.manipulation.atom_array.modification.replace_side_chains`
 装配回整结构 (它保留原结构的 ``N/CA/C/O/OXT``, 所以 ``mutate`` 的输出用的是**原来
 的** ``O``; 这套定位服务于直接调用 :func:`build_side_chain` 的场景)。
 
@@ -91,8 +91,8 @@ from biorazer.database.molecule.icoor.protein.topology import carbonyl_o_dihedra
 from biorazer.database.alphabet import AMINO_ACIDS_1TO3_UPPER
 
 from biorazer.structure.objects import AtomArray
-from ..objects.internal_coords import dihedral
-from ..selection.index.annotation import group_atoms_by_residue
+from ...objects.internal_coords import dihedral
+from ...selection.index.annotation import group_atoms_by_residue
 from .modification import remove_side_chains, replace_side_chains
 
 __all__ = [
@@ -464,7 +464,7 @@ def mutate(
 ):
     """把残基突变到目标类型, 并用 rotamer 库**重建**其侧链。
 
-    与 :func:`~biorazer.structure.manipulation.modification.mutate_without_side_chains`
+    与 :func:`~biorazer.structure.manipulation.atom_array.modification.mutate_without_side_chains`
     的区别: 那个只把侧链砍掉、改个名字, 得到的是**没有侧链**的骨架;
     本函数接着按 rotamer 库把侧链**建出来**。
 

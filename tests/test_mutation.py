@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-"""Tests for :mod:`biorazer.structure.manipulation.mutation`.
+"""Tests for :mod:`biorazer.structure.manipulation.atom_array.mutation`.
 
 被测的是"在真实骨架上按 rotamer 库**重建**侧链"这条链路:
 
@@ -32,8 +32,8 @@ from biorazer.database.molecule.bond.length.protein import (
 )
 from biorazer.database.molecule.icoor.protein import template
 from biorazer.database.molecule.rotamer import pymol as PM
-from biorazer.structure.manipulation import mutation
-from biorazer.structure.manipulation.mutation import (
+from biorazer.structure.manipulation.atom_array import mutation
+from biorazer.structure.manipulation.atom_array.mutation import (
     build_side_chain,
     dihedral,
     mutate,

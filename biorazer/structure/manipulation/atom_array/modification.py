@@ -8,13 +8,13 @@ from biorazer.database.alphabet import AMINO_ACIDS_1TO3_UPPER
 from biorazer.database.molecule.bond.length.protein import AMINO_ACID_BOND_LENGTH
 from biorazer.database.molecule.bond.angle.generic import AMINO_ACID_BACKBONE_BOND_ANGLE
 from biorazer.database.molecule.bond.dihedral.protein import OMEGA_TRANS
-from ..selection.index.annotation import group_atoms_by_residue
+from ...selection.index.annotation import group_atoms_by_residue
 from .util import (
     _ensure_common_annotations,
     _selected_residues,
 )
 
-from ..objects import InternalCoord
+from ...objects import InternalCoord
 
 def add_hydrogens(atom_array: AtomArray):
     if not hasattr(atom_array, "bonds") or not atom_array.bonds:
