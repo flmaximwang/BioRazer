@@ -1,3 +1,11 @@
+"""Manipulation of an ``AtomArray``'s annotations: residue ids, small-molecule bonds.
+
+The operand is the atom array's annotation set
+(:mod:`biorazer.structure.objects.bt_atom_array`), not its coordinates -- the
+coordinate operations are the sibling modules of this package, and
+biorazer's own internal-coordinate container has its own package
+(:mod:`biorazer.structure.manipulation.internal_coord`).
+"""
 import numpy as np
 from biorazer.structure.objects import AtomArray, BondList
 import biotite.structure as bio_struct

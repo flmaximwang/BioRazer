@@ -1,6 +1,10 @@
 # -*- coding: utf-8 -*-
 """按 rotamer 库**重建**侧链的点突变 (不是从别的结构搬运侧链)。
 
+操作对象: biotite ``AtomArray`` —— 读入它的一段**真实骨架坐标**, 输出一个目标残基
+已带上重建侧链的 ``AtomArray`` (``InternalCoord`` 只在 :func:`build_side_chain`
+里作为一次性模板出现)。
+
 与同目录 :mod:`.modification` 的分工
 ─────────────────────────────────────
 ``modification`` 提供的是零件:

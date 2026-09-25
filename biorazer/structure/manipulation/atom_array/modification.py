@@ -1,3 +1,11 @@
+"""Manipulation of biotite's ``AtomArray``: side chains, hydrogens, bonds.
+
+The operand is the atom array itself
+(:mod:`biorazer.structure.objects.bt_atom_array`): parts are removed from
+one array, taken from a second one, or rebuilt -- a new atom array comes
+out.  The operations on biorazer's own internal-coordinate container live
+in :mod:`biorazer.structure.manipulation.internal_coord`.
+"""
 import re
 import numpy as np
 from biorazer.structure.objects import AtomArray
