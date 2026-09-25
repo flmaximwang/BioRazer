@@ -123,8 +123,10 @@ jobs:
         # `bash` on every runner, so the venv layout is the only difference.
         run: |
           python -m venv .verify
-          VENV_PY=.verify/bin/python
-          [ -f "$VENV_PY" ] || VENV_PY=.verify/Scripts/python.exe
+          # Absolute: the suite step cds into run/ before calling this, and a
+          # relative path would then be "No such file or directory" (exit 127).
+          VENV_PY="$PWD/.verify/bin/python"
+          [ -f "$VENV_PY" ] || VENV_PY="$PWD/.verify/Scripts/python.exe"
           echo "VENV_PY=$VENV_PY" >> "$GITHUB_ENV"
           # By path, so pip cannot substitute some released biorazer; the
           # runtime dependencies and pytest come from PyPI as usual.
