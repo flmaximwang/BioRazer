@@ -1,25 +1,35 @@
 # -*- coding: utf-8 -*-
-"""原子选择器编辑器的窗口 (tkinter) —— :mod:`~biorazer.structure.objects.selector` 的私有模块。
+"""原子选择编辑器的窗口 (tkinter) —— :mod:`~biorazer.structure.objects.selector` 的私有模块。
 
-入口只有一个: :meth:`~biorazer.structure.objects.selector.AtomArraySelector.run_editor`,
-它惰性 import 本模块并把选择器实例交进来 (tkinter 因此不进 ``import objects`` 的路径)。
-编辑器**就地**改传进来的选择器 (``rules`` / ``header``), 边上给两个 csv:
-起始规则表 (:meth:`~biorazer.structure.objects.selector.AtomArraySelector.from_csv` 的
-``"rule"`` 方向) 与导出的选择表 (``"selection"`` 方向)。结构走库自己的读入口
+入口只有一个: :meth:`~biorazer.structure.objects.selector.AtomArraySelection.run_editor`,
+它惰性 import 本模块并把选择实例交进来 (tkinter 因此不进 ``import objects`` 的路径)。
+编辑器**就地**改传进来的选择 (``rules`` / ``header``), 边上给两个 csv:
+起始规则表 (:class:`~biorazer.structure.bridge.RuleCsv_AtomArraySelection`) 与导出的选择表
+(:class:`~biorazer.structure.bridge.AtomArraySelection_SelectionCsv`)。结构走库自己的读入口
 (:class:`biorazer.structure.io.StructureFile_AtomArray`, 按后缀走 ``Pdb_AtomArray`` / ``Cif_AtomArray``)。
+行操作 (加行/删行/上移下移) 直接调 :class:`~biorazer.structure.objects.selector.AtomArraySelection`
+的同名方法, 不另写一套。
 
 GUI 每个字段是「模式下拉 + 输入框」; 输入框为空时框里显示该模式下该怎么写 (灰字提示,
 聚焦即清)。表格配色: 有问题行红、激活行淡蓝。
+
+窗口**固定亮色**: macOS 上 Tk 默认跟随系统外观 (``appearance=auto``) 而默认配色的控件
+用的是语义颜色, 系统深色下整窗跟着变黑 —— 见 :func:`force_light_appearance`。
 """
 
 from __future__ import annotations
 
 from pathlib import Path
 
+from biorazer.structure.bridge import (
+    AtomArraySelection_RuleCsv,
+    AtomArraySelection_SelectionCsv,
+    RuleCsv_AtomArraySelection,
+)
 from biorazer.structure.io import StructureFile_AtomArray
 from biorazer.structure.objects.selector import (
     MODES,
-    AtomArraySelector,
+    AtomArraySelection,
     _TargetView,
     decode,
     encode,
@@ -115,14 +125,34 @@ class PlainCell:
         self.entry.configure(bg=BG_PROBLEM if problem else (BG_ACTIVE if active else BG_IDLE))
 
 
-def run_editor(selector: AtomArraySelector, structure_file=None, rule_csv=None,
+def force_light_appearance(window):
+    """把窗口外观钉成亮色 (macOS 的 NSAppearance), 返回设成了什么; 别的平台返回 ``None``。
+
+    Tk 在 macOS 上默认 ``appearance=auto`` (= 跟随系统), 而默认配色的控件用的是
+    ``systemWindowBackgroundColor`` / ``systemTextColor`` 这类**语义颜色** —— 系统深色下
+    整个窗口 (连下拉框) 一起变黑, 编辑器里那些写死的白/红/蓝底色反倒成了异类。
+    这里把窗口外观钉成 ``aqua`` (= 亮色), 子控件继承同一个 NSAppearance, 配色一并回来。
+
+    实测 (Tk 8.6.13): ``tk::unsupported::MacWindowStyle appearance .`` 默认回答 ``auto``,
+    设成 ``aqua`` 后读回 ``aqua``; 老 Tk 没这个子命令, 那就保持系统外观 (不报错)。
+    """
+    if window.tk.call("tk", "windowingsystem") != "aqua":
+        return None
+    try:
+        window.tk.call("tk::unsupported::MacWindowStyle", "appearance", window._w, "aqua")
+    except window.tk.TclError:
+        return None
+    return "aqua"
+
+
+def run_editor(selector: AtomArraySelection, structure_file=None, rule_csv=None,
                selection_csv=None, dedupe: bool = True, on_ready=None):
-    """打开编辑器窗口; 见 :meth:`AtomArraySelector.run_editor`。
+    """打开编辑器窗口; 见 :meth:`AtomArraySelection.run_editor`。
 
     Parameters
     ----------
-    selector : AtomArraySelector
-        就地编辑的选择器。
+    selector : AtomArraySelection
+        就地编辑的选择。
     structure_file, rule_csv, selection_csv : str or Path or None
         起始结构 / 规则表 / 导出路径 (都能在 GUI 里改)。
     dedupe : bool
@@ -295,7 +325,7 @@ def run_editor(selector: AtomArraySelector, structure_file=None, rule_csv=None,
 
     def load_rules(path):
         try:
-            fresh = AtomArraySelector.from_csv(path)
+            fresh = RuleCsv_AtomArraySelection(input_io=path).read()
         except (OSError, ValueError) as exc:
             messagebox.showerror("读规则表失败", str(exc))
             return
@@ -315,7 +345,7 @@ def run_editor(selector: AtomArraySelector, structure_file=None, rule_csv=None,
             initialfile=(state["rules_path"] or Path("rules.csv")).name)
         if not path:
             return
-        selector.to_csv(path, mode="rule")
+        AtomArraySelection_RuleCsv(output_io=path).write(selector)
         state["rules_path"] = Path(path)
         rules_var.set(f"规则表: {path} (已保存 {len(selector.rules)} 行规则)")
 
@@ -337,8 +367,8 @@ def run_editor(selector: AtomArraySelector, structure_file=None, rule_csv=None,
             defaultextension=".csv", initialfile=state["out_path"].name)
         if not path:
             return
-        selector.to_csv(path, mode="selection", structure=state["structure"],
-                        dedupe=dedupe_var.get())
+        AtomArraySelection_SelectionCsv(output_io=path).write(
+            selector, state["structure"], dedupe=dedupe_var.get())
         state["out_path"] = Path(path)
         out_var.set(f"选择表(输出): {path} ({len(keep)} 个原子"
                     + (f", 去重丢掉 {len(flat) - len(keep)}, 重复 {dup}" if dedupe_var.get() and dup
@@ -371,25 +401,22 @@ def run_editor(selector: AtomArraySelector, structure_file=None, rule_csv=None,
 
     def add_row():
         sync_all()
-        selector.rules.append([""] * len(selector.header))
+        selector.add_rule()
         rebuild()
         refresh_status()
 
     def del_row():
         if state["focus"] < len(selector.rules):
             sync_all()
-            selector.rules.pop(state["focus"])
+            selector.remove_rule(state["focus"])
             state["focus"] = max(0, state["focus"] - 1)
             rebuild()
             refresh_status()
 
     def move_row(delta):
         sync_all()
-        r, t = state["focus"], state["focus"] + delta
-        if 0 <= t < len(selector.rules):
-            selector.rules[r], selector.rules[t] = selector.rules[t], selector.rules[r]
-            state["focus"] = t
-            rebuild()
+        state["focus"] = selector.move_rule(state["focus"], delta)
+        rebuild()
 
     # ---- 部件
     top = tk.Frame(root)
@@ -443,7 +470,7 @@ def run_editor(selector: AtomArraySelector, structure_file=None, rule_csv=None,
     root.bind("<Command-e>", lambda _e: export())
 
     def start():
-        # 表头在构造时已经验过 (AtomArraySelector.__post_init__), 这里只取一次列号缓存
+        # 表头在构造时已经验过 (AtomArraySelection.__post_init__), 这里只取一次列号缓存
         state["columns"] = selector.columns
         if rule_csv:
             load_rules(rule_csv)
@@ -472,6 +499,10 @@ def run_editor(selector: AtomArraySelector, structure_file=None, rule_csv=None,
         root.after(300, _probe)
 
     start()
+    # 外观要等窗口建好再钉: Tk 在没有 NSWindow 时设不上 (会警告 "Failed to read
+    # appearance name"), 而 title/geometry/lift/topmost 又可能把设过的外观打回 auto。
+    root.update_idletasks()
+    force_light_appearance(root)
     root.mainloop()
     if failures:
         raise failures[0]

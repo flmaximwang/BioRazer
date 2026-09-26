@@ -1,13 +1,16 @@
 # -*- coding: utf-8 -*-
-"""原子选择器: 规则表 / 选择表的语法、匹配, 以及它的 GUI 编辑器。
+"""原子选择: 规则表 / 选择表的语法、匹配, 以及它的 GUI 编辑器。
 
-**两个 csv** (规则表与选择表是同一套语法的两种用法):
+**两个 csv** (规则表与选择表是同一套语法的两种用法), 两个方向都在
+:mod:`biorazer.structure.bridge` 里, 各一个 ``A_B`` 转换器:
 
-1. **规则表** (:meth:`AtomArraySelector.from_csv` 的 ``mode="rule"``): 每行一条**选择式**,
-   5 列 ``ins_code``/``chain``/``resi``/``name``/``altloc``, 每格是一条**模式**
-   (通配符/正则/范围/列表), 一行展开成一条**原子序列**。
-2. **选择表** (``mode="selection"``): **严格每行一个原子**, 字段列是具体值, 由规则表按目标
-   展开而来。下游只认这个文件。
+1. **规则表** (:class:`~biorazer.structure.bridge.RuleCsv_AtomArraySelection`):
+   每行一条**选择式**, 5 列 ``ins_code``/``chain``/``resi``/``name``/``altloc``, 每格是一条
+   **模式** (通配符/正则/范围/列表), 一行展开成一条**原子序列**; 回写是
+   :class:`~biorazer.structure.bridge.AtomArraySelection_RuleCsv`。
+2. **选择表** (:class:`~biorazer.structure.bridge.SelectionCsv_AtomArraySelection`):
+   **严格每行一个原子**, 字段列是具体值, 由规则表按目标展开而来
+   (:class:`~biorazer.structure.bridge.AtomArraySelection_SelectionCsv`)。下游只认这个文件。
 
 具体值 (字面值) 展开后就是它自己一个原子, 所以**选择表可以当规则表打开** —— 拿它反查
 "这些原子在结构里都在吗", 或把某一行改成范围批量扩。
@@ -33,12 +36,14 @@
 
 用法::
 
-    sel = AtomArraySelector.from_csv("rules.csv", mode="rule")   # 或自己造 rules
+    sel = RuleCsv_AtomArraySelection(input_io="rules.csv").read()   # 或自己造 rules
     mask = sel.mask(atom_array)              # 与 atom_array 对齐的布尔 mask
     idx = sel.indices(atom_array)            # 展平后的原子下标 (规则序 → 结构序)
     sub = sel.apply(atom_array)              # 选择后的 AtomArray
     sub = sel.apply(internal_coord)          # 选择后的 InternalCoord (见 apply 的约束)
-    sel.to_csv("selection.csv", mode="selection", structure=atom_array)
+    AtomArraySelection_SelectionCsv(output_io="selection.csv").write(sel, atom_array)
+    i = sel.add_rule({"chain": "A", "name": "CA"})   # 行操作 = GUI 的 加行/删行/上移下移
+    sel.move_rule(i, -1)
     sel.run_editor(structure_file="x.pdb", rule_csv="rules.csv", selection_csv="out.csv")
 
 命令行 (parser/runner 就在本模块, ``objects/cli.py`` 只做注册)::
@@ -50,10 +55,10 @@
 ``ins_code`` / ``chain_id`` / ``res_id`` / ``atom_name`` / ``res_name``, 匹配一律按
 PDB/auth 口径 (biotite 的 ``use_author_fields`` 默认值)。
 
-规则表/选择表的 csv 由本模块读写; 文件 → 内存对象的读取走
-:mod:`biorazer.structure.io` (``StructureFile_AtomArray``); 变成 mask / indices 的**转换器**
-(``AtomArraySelector_AtomArrayMask`` / ``AtomArraySelector_AtomArrayIndices``) 在
-:mod:`biorazer.structure.bridge.selector`; GUI 在同包的私有模块 ``_selector_gui``。
+规则表/选择表的 csv 由 :mod:`biorazer.structure.bridge.selector` 的四个转换器读写 (本模块
+不碰文件); 结构文件的读取走 :mod:`biorazer.structure.io` (``StructureFile_AtomArray``);
+变成 mask / indices 的两个转换器 (``AtomArraySelection_AtomArrayMask`` /
+``AtomArraySelection_AtomArrayIndices``) 也在那里; GUI 在同包的私有模块 ``_selector_gui``。
 
 已知边界: 五元组 (ins_code, chain, resi, name, altloc) 不是全局唯一 —— 同一残基上多个原子
 重名、或目标不带 altloc 标注时会出现同 key 的多个原子 (命中重复会在警告里报个数)。展平**默认
@@ -64,7 +69,6 @@ PDB/auth 口径 (biotite 的 ``use_author_fields`` 默认值)。
 from __future__ import annotations
 
 import argparse
-import csv
 import re
 from collections import Counter
 from dataclasses import dataclass, field
@@ -192,13 +196,18 @@ def decode(field: str, pattern: str):
     return "字面值", p
 
 
-# ---------------------------------------------------------------- csv 读写
+# ---------------------------------------------------------------- 表头 / 列
+
+def _head_key(name) -> str:
+    """表头名归一化: 大小写、空格、连字符都不算数 (``chain ID`` ≡ ``chain_id``)。"""
+    return str(name).strip().lower().replace(" ", "_").replace("-", "_")
+
 
 def find_columns(header) -> dict:
     """表头 → FIELDS 各字段的列号; 缺列直接报错, 不猜。"""
     idx = {}
     for i, h in enumerate(header):
-        key = str(h).strip().lower().replace(" ", "_").replace("-", "_")
+        key = _head_key(h)
         for field, aliases in FIELD_ALIASES.items():
             if field not in idx and key in aliases:
                 idx[field] = i
@@ -206,22 +215,6 @@ def find_columns(header) -> dict:
     if missing:
         raise ValueError(f"csv 缺少列 {missing}; 现有表头: {list(header)}")
     return idx
-
-
-def _read_csv(path) -> tuple[list[list[str]], list[str]]:
-    """→ (数据行, 表头)。"""
-    with open(path, newline="", encoding="utf-8-sig") as fh:
-        rows = list(csv.reader(fh))
-    if not rows:
-        return [], list(FIELDS)
-    return rows[1:], [h.strip() for h in rows[0]]
-
-
-def _write_csv(path, header, rows) -> None:
-    with open(path, "w", newline="", encoding="utf-8") as fh:
-        writer = csv.writer(fh, lineterminator="\n")
-        writer.writerow(header)
-        writer.writerows(rows)
 
 
 # ---------------------------------------------------------------- 匹配目标
@@ -320,11 +313,11 @@ def _unreachable(ic: InternalCoord) -> list[int]:
     return sorted(set(range(len(ic))) - placed)
 
 
-# ---------------------------------------------------------------- 选择器
+# ---------------------------------------------------------------- 选择
 
 @dataclass(slots=True, repr=False)
-class AtomArraySelector:
-    """一组选择式 (规则表), 可以匹配 ``AtomArray`` / ``InternalCoord``, 也可以读写 csv。
+class AtomArraySelection:
+    """一组选择式 (规则表), 可以匹配 ``AtomArray`` / ``InternalCoord``。
 
     Fields
     ------
@@ -337,6 +330,12 @@ class AtomArraySelector:
 
     ``repr=False`` 保留下面的短 repr (生成的 repr 会把每行规则都倒出来)。相等按字段值
     (两组规则 + 表头) 比较。
+
+    读写 csv 不在本类 (对象不携带 ``from_a`` / ``to_b`` 方法): 规则表走
+    :class:`~biorazer.structure.bridge.RuleCsv_AtomArraySelection` /
+    :class:`~biorazer.structure.bridge.AtomArraySelection_RuleCsv`, 选择表走
+    :class:`~biorazer.structure.bridge.SelectionCsv_AtomArraySelection` /
+    :class:`~biorazer.structure.bridge.AtomArraySelection_SelectionCsv`。
     """
 
     rules: list[list[str]] = field(default_factory=list)
@@ -358,7 +357,7 @@ class AtomArraySelector:
         self.columns          # 表头缺列在这里就报错, 不等到匹配时
 
     def __repr__(self):
-        return f"AtomArraySelector({len(self.rules)} rules, header={self.header})"
+        return f"AtomArraySelection({len(self.rules)} rules, header={self.header})"
 
     @property
     def columns(self) -> dict:
@@ -371,62 +370,87 @@ class AtomArraySelector:
         cols = self.columns
         return [{f: row[cols[f]].strip() for f in FIELDS} for row in self.rules]
 
-    # ---- csv ------------------------------------------------------------
+    # ---- 行操作 (GUI 里那些按钮的代码版) --------------------------------
 
-    @classmethod
-    def from_csv(cls, path, mode: str = "rule") -> "AtomArraySelector":
-        """从 csv 构建选择器。
+    def _row_from(self, cells: dict) -> list[str]:
+        """``{列名: 单元格}`` → 与表头对齐的一行 (没给的列填空)。"""
+        cols = self.columns
+        at = {_head_key(h): i for i, h in enumerate(self.header)}
+        for field, aliases in FIELD_ALIASES.items():
+            for alias in aliases:
+                at.setdefault(alias, cols[field])         # 别名指向字段列; 表头名优先
+        row = [""] * len(self.header)
+        for name, value in cells.items():
+            key = _head_key(name)
+            if key not in at:
+                raise ValueError(
+                    f"unknown column {name!r}; 表头 {self.header}, "
+                    f"或字段别名 {sorted(set(sum(FIELD_ALIASES.values(), ())))}")
+            row[at[key]] = str(value)
+        return row
+
+    def add_rule(self, cells: dict | None = None, index: int | None = None) -> int:
+        """加一行规则 —— GUI「添加行」+ 逐格填写的代码版。
 
         Parameters
         ----------
-        path : str or Path
-            规则表 / 选择表路径。
-        mode : {"rule", "selection"}
-            ``"rule"`` 每格原样当**模式**读 (规则表); ``"selection"`` 每格是**具体值**,
-            先经 :func:`encode` 按字面值转义再当模式读 —— 否则选择表里那些具体值
-            (``A,B`` 是列表、``CA-CB`` 是范围、``re:x`` 是正则) 会被当语法误解。
-            这样选择表也能当规则表打开 (见模块 docstring)。
+        cells : dict or None
+            ``{列名: 单元格字符串}``: 列名认表头名与 ``FIELD_ALIASES`` 的别名, 没给的列填空。
+            值是**写进规则表的模式字符串** (``"A"`` / ``"1-10"`` / ``"re:C[AB]"`` / ``"*"``);
+            从 GUI 的「模式 + 输入框」造它用 :func:`encode`。``None`` = 加一整行空的
+            (空框 = 任意, 即命中目标里每个原子)。
+        index : int or None
+            插到这个位置 (``list.insert`` 语义, 负号从末尾数); ``None`` = 追加到末尾。
 
         Returns
         -------
-        AtomArraySelector
-        """
-        if mode not in ("rule", "selection"):
-            raise ValueError(f"mode must be 'rule' or 'selection', got {mode!r}")
-        rows, header = _read_csv(path)
-        if mode == "selection":
-            field_of = {i: f for f, i in find_columns(header).items()}
-            rows = [[encode(field_of[i], "字面值", cell) if i in field_of else cell
-                     for i, cell in enumerate(row)] for row in rows]
-        return cls(rules=rows, header=header)
+        int
+            新行的行号。
 
-    def to_csv(self, path, mode: str = "rule", structure=None, dedupe: bool = True) -> None:
-        """导出选择器。
-
-        Parameters
-        ----------
-        path : str or Path
-            输出路径。
-        mode : {"rule", "selection"}
-            ``"rule"`` 原样写回规则表 (与 :meth:`from_csv` 的 ``"rule"`` 往返一致);
-            ``"selection"`` 按 ``structure`` 把每行规则展开成**每行一个原子**的选择表,
-            字段列写具体值, 其余列照抄。``structure`` 必需 —— 它是展开的唯一依据。
-        structure : AtomArray or InternalCoord or None
-            展开规则表用的目标 (只有 ``mode="selection"`` 用得到)。
-        dedupe : bool
-            展开时去掉重复原子 (同一个五元组只留第一次命中的那条规则)。
+        Raises
+        ------
+        ValueError
+            列名既不是表头名也不是字段别名。
         """
-        if mode == "rule":
-            _write_csv(path, self.header, self.rules)
-            return
-        if mode != "selection":
-            raise ValueError(f"mode must be 'rule' or 'selection', got {mode!r}")
-        if structure is None:
-            raise ValueError("mode='selection' needs a structure: the selection table "
-                             "is the rule table expanded against one")
-        view, _hits, _keep, _warns, _dup = self._match(structure)
-        _write_csv(path, self.header,
-                   self.expanded_rows(view, self.pairs(structure, dedupe=dedupe)))
+        row = self._row_from(cells or {})
+        pos = len(self.rules) if index is None else index
+        if pos < 0:
+            pos = max(0, len(self.rules) + pos)
+        pos = min(pos, len(self.rules))
+        self.rules.insert(pos, row)
+        return pos
+
+    def remove_rule(self, index: int) -> list[str]:
+        """删掉第 ``index`` 行规则 —— GUI「删除行」的代码版 (负号从末尾数)。
+
+        Returns
+        -------
+        list[str]
+            被删掉的那一行。
+
+        Raises
+        ------
+        IndexError
+            行号越界 (与 ``list.pop`` 一致: 不静默、不动表)。
+        """
+        return self.rules.pop(index)
+
+    def move_rule(self, index: int, delta: int) -> int:
+        """把第 ``index`` 行上/下移 —— GUI「上移」/「下移」的代码版 (即 ``delta=±1``)。
+
+        顺序有意义: 展平顺序 = 规则序 → 原子序, 所以移动一行会改
+        :meth:`pairs` / :meth:`indices` 的顺序 (同一个原子由哪条规则写进选择表)。
+
+        Returns
+        -------
+        int
+            移动后的行号; 起点或目标位置不在表里就原样返回, 不动表。
+        """
+        target = index + delta
+        if not (0 <= index < len(self.rules)) or not (0 <= target < len(self.rules)):
+            return index
+        self.rules[index], self.rules[target] = self.rules[target], self.rules[index]
+        return target
 
     # ---- 匹配 -----------------------------------------------------------
 
@@ -442,7 +466,7 @@ class AtomArraySelector:
         """
         if isinstance(target, AtomArrayStack):
             raise TypeError(
-                "AtomArraySelector works on a single model: this is an AtomArrayStack. "
+                "AtomArraySelection works on a single model: this is an AtomArrayStack. "
                 "Index the model you mean first (e.g. stack[0]) -- boolean indexing a "
                 "stack selects models, not atoms.")
         return target
@@ -577,8 +601,8 @@ class AtomArraySelector:
 
         Returns
         -------
-        AtomArraySelector
-            本选择器 (GUI 里保存/导出会就地更新它的 ``rules`` / ``header``)。
+        AtomArraySelection
+            本选择 (GUI 里保存/导出会就地更新它的 ``rules`` / ``header``)。
         """
         from biorazer.structure.objects._selector_gui import run_editor
         return run_editor(self, structure_file=structure_file, rule_csv=rule_csv,
@@ -587,7 +611,7 @@ class AtomArraySelector:
 
 # ---------------------------------------------------------------- 不开窗的用法
 
-def print_report(selector: AtomArraySelector, structure, dedupe: bool = True,
+def print_report(selector: AtomArraySelection, structure, dedupe: bool = True,
                  out=None) -> int:
     """打印每行规则的命中数/问题行; 给了 ``out`` 就顺手把选择表写过去。
 
@@ -610,7 +634,9 @@ def print_report(selector: AtomArraySelector, structure, dedupe: bool = True,
           f"个原子, 重复 {dup}, {len(warns)} 行有问题; "
           f"选择表 {len(keep)} 个原子" + (" (已去重)" if dedupe else " (未去重)"))
     if out is not None:
-        selector.to_csv(out, mode="selection", structure=structure, dedupe=dedupe)
+        from biorazer.structure.bridge import AtomArraySelection_SelectionCsv
+        AtomArraySelection_SelectionCsv(output_io=out).write(selector, structure,
+                                                            dedupe=dedupe)
         print(f"选择表 {out}: {len(keep)} 行 (每行一个原子)")
     return 1 if warns else 0
 
@@ -646,10 +672,11 @@ def _add_selector_parser(sub):
 
 def _run_selector(args) -> None:
     """``biorazer select`` 的执行体。"""
+    from biorazer.structure.bridge import RuleCsv_AtomArraySelection
     from biorazer.structure.io import StructureFile_AtomArray
 
-    selector = (AtomArraySelector.from_csv(args.rules) if Path(args.rules).exists()
-                else AtomArraySelector())
+    selector = (RuleCsv_AtomArraySelection(input_io=args.rules).read()
+                if Path(args.rules).exists() else AtomArraySelection())
     if args.do_print or args.export:
         if not args.structure:
             raise SystemExit("--print/--export 需要 -s/--structure")

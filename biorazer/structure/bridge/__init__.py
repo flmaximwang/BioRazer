@@ -12,9 +12,10 @@ themselves carry no ``from_a`` / ``to_b`` methods (see
   (SMCRA) <-> biopython ``IC_Chain``.
 - :mod:`~biorazer.structure.bridge.sequence` -- biotite ``AtomArray`` ->
   biotite ``ProteinSequence``.
-- :mod:`~biorazer.structure.bridge.selector` -- biorazer ``AtomArraySelector`` ->
-  a boolean mask / atom indices over an ``AtomArray`` (a *selection*, so the
-  target array is an argument of ``convert()``).
+- :mod:`~biorazer.structure.bridge.selector` -- biorazer ``AtomArraySelection``:
+  its rule table / selection table csv (file-backed) and the boolean mask / atom
+  indices it makes over an ``AtomArray`` (a *selection*, so the target array is
+  an argument of ``convert()`` / ``write()``).
 """
 
 from biorazer.structure.bridge.atom_array import (
@@ -23,8 +24,12 @@ from biorazer.structure.bridge.atom_array import (
 )
 from biorazer.structure.bridge.icchain import ICChain_SMCRA, SMCRA_ICChain
 from biorazer.structure.bridge.selector import (
-    AtomArraySelector_AtomArrayIndices,
-    AtomArraySelector_AtomArrayMask,
+    AtomArraySelection_AtomArrayIndices,
+    AtomArraySelection_AtomArrayMask,
+    AtomArraySelection_RuleCsv,
+    AtomArraySelection_SelectionCsv,
+    RuleCsv_AtomArraySelection,
+    SelectionCsv_AtomArraySelection,
 )
 from biorazer.structure.bridge.sequence import AtomArray_ProteinSequence
 
@@ -34,6 +39,10 @@ __all__ = [
     "SMCRA_ICChain",
     "ICChain_SMCRA",
     "AtomArray_ProteinSequence",
-    "AtomArraySelector_AtomArrayMask",
-    "AtomArraySelector_AtomArrayIndices",
+    "RuleCsv_AtomArraySelection",
+    "AtomArraySelection_RuleCsv",
+    "SelectionCsv_AtomArraySelection",
+    "AtomArraySelection_SelectionCsv",
+    "AtomArraySelection_AtomArrayMask",
+    "AtomArraySelection_AtomArrayIndices",
 ]

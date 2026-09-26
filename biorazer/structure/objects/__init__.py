@@ -12,9 +12,10 @@ Biorazer's own objects
 - :mod:`.internal_coords` -- :class:`InternalCoord` (a generative
   internal-coordinate description of a structure) and
   :class:`InternalCoordAtom` (its per-atom annotation record).
-- :mod:`.selector` -- :class:`AtomArraySelector`: a set of per-atom selection rules
+- :mod:`.selector` -- :class:`AtomArraySelection`: a set of per-atom selection rules
   over ``ins_code`` / ``chain`` / ``resi`` / ``name`` / ``altloc``, with its rule
-  table / selection table csv and the tkinter editor that edits them.
+  table / selection table csv (read and written by
+  :mod:`biorazer.structure.bridge`) and the tkinter editor that edits them.
 
 Borrowed objects
 ----------------
@@ -48,13 +49,13 @@ from biorazer.structure.objects.internal_coords import (
 )
 from biorazer.structure.objects.pr_pose import pose_class
 from biorazer.structure.objects.rd_mol import Mol
-from biorazer.structure.objects.selector import AtomArraySelector
+from biorazer.structure.objects.selector import AtomArraySelection
 
 __all__ = [
     # biorazer's own
     "InternalCoord",
     "InternalCoordAtom",
-    "AtomArraySelector",
+    "AtomArraySelection",
     # biotite
     "AtomArray",
     "AtomArrayStack",

@@ -1,11 +1,13 @@
 # -*- coding: utf-8 -*-
-"""Tests for :mod:`biorazer.structure.objects.selector` 和它的两个 bridge 转换器。
+"""Tests for :mod:`biorazer.structure.objects.selector` 和它的 bridge 转换器。
 
 被测的是"规则表 → 每行一个原子的选择表"这条链路:
 
 * 匹配语法 (通配符/列表/范围/正则/字面值) 与 ``ins_code`` / ``altloc`` 的"空 = 没有"特例;
 * GUI 的「模式」↔ csv 字符串 (encode/decode) 往返;
-* 规则表 → 选择表 → 规则表 的往返, 以及**选择表当规则表打开**时每个具体值只命中它自己;
+* 行操作 (add_rule / remove_rule / move_rule = GUI 的 加行 / 删行 / 上移下移);
+* 规则表 → 选择表 → 规则表 的往返 (四个 csv 转换器), 以及**选择表当规则表打开**时
+  每个具体值只命中它自己;
 * 展平顺序 (规则序 → 原子序) 与去重语义, mask / indices 两个转换器;
 * ``apply`` 对 ``AtomArray`` 与 ``InternalCoord`` 两种目标的判据 (后者要求选择保住连通性);
 * GUI 编辑器全流程 (建表/提示/高亮/展开/回写), 没有显示环境时 skip。
@@ -24,11 +26,15 @@ import pytest
 
 from biorazer.structure.bridge import (
     AtomArray_InternalCoord,
-    AtomArraySelector_AtomArrayIndices,
-    AtomArraySelector_AtomArrayMask,
+    AtomArraySelection_AtomArrayMask,
+    AtomArraySelection_AtomArrayIndices,
+    AtomArraySelection_RuleCsv,
+    AtomArraySelection_SelectionCsv,
+    RuleCsv_AtomArraySelection,
+    SelectionCsv_AtomArraySelection,
 )
 from biorazer.structure.io import StructureFile_AtomArray
-from biorazer.structure.objects import AtomArray, AtomArraySelector
+from biorazer.structure.objects import AtomArray, AtomArraySelection
 from biorazer.structure.objects.selector import (
     FIELDS,
     decode,
@@ -149,20 +155,20 @@ def test_fields_include_altloc():
 
 def test_dataclass_contract():
     """None → 空; 短行补到表头宽; 表头缺列当场报错; 相等按值比。"""
-    empty = AtomArraySelector()
+    empty = AtomArraySelection()
     assert empty.header == list(FIELDS) and empty.rules == []
 
-    sel = AtomArraySelector(rules=[["", "A"]], header=list(FIELDS))
+    sel = AtomArraySelection(rules=[["", "A"]], header=list(FIELDS))
     assert sel.rules == [["", "A", "", "", ""]]
-    assert sel == AtomArraySelector(rules=[["", "A"]])
-    assert repr(sel) == f"AtomArraySelector(1 rules, header={list(FIELDS)})"
+    assert sel == AtomArraySelection(rules=[["", "A"]])
+    assert repr(sel) == f"AtomArraySelection(1 rules, header={list(FIELDS)})"
 
     with pytest.raises(ValueError):
-        AtomArraySelector(rules=[["", "A", "1", "CA"]], header=["ins_code", "chain", "resi"])
+        AtomArraySelection(rules=[["", "A", "1", "CA"]], header=["ins_code", "chain", "resi"])
 
     # 比表头还长的行 = csv 里那个逗号没加引号, 报错而不是静默丢单元格
     with pytest.raises(ValueError) as excinfo:
-        AtomArraySelector(rules=[["", "A", "1", "CA", "", "批注", "多出来的"]])
+        AtomArraySelection(rules=[["", "A", "1", "CA", "", "批注", "多出来的"]])
     assert "more cells than the header" in str(excinfo.value)
 
 
@@ -175,7 +181,7 @@ def test_tkinter_is_not_imported_with_the_selector():
     repo_root = pathlib.Path(__file__).resolve().parents[1]
     code = ("import sys, biorazer.structure.objects as O;"
             "print('tkinter' in sys.modules);"
-            "print(callable(O.AtomArraySelector))")
+            "print(callable(O.AtomArraySelection))")
     env = dict(os.environ)
     env["PYTHONPATH"] = str(repo_root) + os.pathsep + env.get("PYTHONPATH", "")
     proc = subprocess.run([sys.executable, "-c", code], cwd=repo_root, env=env,
@@ -190,7 +196,7 @@ def test_tkinter_is_not_imported_with_the_selector():
 def test_resolve_reports_hits_and_warnings():
     """每行命中数 + 三类警告: 0 命中 / 链不在目标里 / 正则错误 / 五元组重复。"""
     arr = _tiny_array()
-    sel = AtomArraySelector(rules=[
+    sel = AtomArraySelection(rules=[
         ["", "A", "1-2", "C*", ""],                      # 命中 0, 1
         ["A", "B", "1", "N", ""],                        # 命中 2 (ins_code A)
         ["", "Z", "1", "CA", ""],                        # 0 命中 + 链不存在
@@ -209,7 +215,7 @@ def test_resolve_reports_hits_and_warnings():
 def test_flat_order_dedupe_and_mask():
     """展平顺序 = 规则序 → 原子序; 去重只留第一次命中的那条规则; mask 与顺序无关。"""
     arr = _tiny_array()
-    sel = AtomArraySelector(rules=[
+    sel = AtomArraySelection(rules=[
         ["", "A", "1-2", "C*", ""],                      # 0, 1
         ["", "A", "1", "CA", ""],                        # 0 (重复)
         ["A", "B", "1", "N", ""],                        # 2 (那个原子带插入码 A)
@@ -226,9 +232,9 @@ def test_flat_order_dedupe_and_mask():
 def test_mask_and_indices_from_the_bridge():
     """两个 A_B 转换器 = 对象上同名查询的一层 "方向" 命名。"""
     arr = _tiny_array()
-    sel = AtomArraySelector(rules=[["", "A", "1", "CA", ""], ["A", "B", "1", "N", ""]])
-    mask = AtomArraySelector_AtomArrayMask(input_io=sel).convert(arr)
-    idx = AtomArraySelector_AtomArrayIndices(input_io=sel).convert(arr)
+    sel = AtomArraySelection(rules=[["", "A", "1", "CA", ""], ["A", "B", "1", "N", ""]])
+    mask = AtomArraySelection_AtomArrayMask(input_io=sel).convert(arr)
+    idx = AtomArraySelection_AtomArrayIndices(input_io=sel).convert(arr)
     assert mask.tolist() == sel.mask(arr).tolist() == [True, False, True]
     assert idx.tolist() == sel.indices(arr).tolist() == [0, 2]
     assert (arr[mask].atom_name == arr[idx].atom_name).all()
@@ -241,57 +247,86 @@ def test_mask_and_indices_from_the_bridge():
 def test_csv_roundtrip_and_selection_table(tmp_path):
     """规则表往返一致; 选择表严格每行一个原子 (具体值 + 去重), 且能当规则表打开。"""
     arr = _tiny_array()
-    sel = AtomArraySelector(rules=[
+    sel = AtomArraySelection(rules=[
         ["", "A", "1-2", "C*", "*", "规则一"],
         ["", "A", "1", "CA", "*", "规则二(与规则一重复)"],
         ["", "Z", "1", "CA", "*", "坏链"],
     ], header=list(FIELDS) + ["note"])
 
     rules_path = tmp_path / "rules.csv"
-    sel.to_csv(rules_path, mode="rule")
-    assert AtomArraySelector.from_csv(rules_path, mode="rule") == sel
+    AtomArraySelection_RuleCsv(output_io=rules_path).write(sel)
+    assert RuleCsv_AtomArraySelection(input_io=rules_path).read() == sel
     # 0 命中的行也原样回写 —— 规则表是唯一真源, 展开时才丢
-    assert [r[-1] for r in AtomArraySelector.from_csv(rules_path).rules] == [
+    assert [r[-1] for r in
+            RuleCsv_AtomArraySelection(input_io=rules_path).read().rules] == [
         "规则一", "规则二(与规则一重复)", "坏链"]
 
     out_path = tmp_path / "selection.csv"
-    sel.to_csv(out_path, mode="selection", structure=arr)
+    AtomArraySelection_SelectionCsv(output_io=out_path).write(sel, arr)
     rows, header = list(csv.reader(out_path.open())), None
     header, body = rows[0], rows[1:]
     assert header == list(FIELDS) + ["note"]
     assert [r[:5] for r in body] == [["", "A", "1", "CA", ""], ["", "A", "2", "CB", ""]]
     assert [r[-1] for r in body] == ["规则一", "规则一"]      # 重复的那条被去重丢掉
 
-    sel.to_csv(out_path, mode="selection", structure=arr, dedupe=False)
+    AtomArraySelection_SelectionCsv(output_io=out_path).write(sel, arr, dedupe=False)
     body = list(csv.reader(out_path.open()))[1:]
     assert len(body) == 3 and body[2][-1] == "规则二(与规则一重复)"
 
     # 选择表当规则表打开: 每个具体值只命中它自己
-    back = AtomArraySelector.from_csv(out_path, mode="selection")
+    back = SelectionCsv_AtomArraySelection(input_io=out_path).read()
     hits, warns, dup = back.resolve(arr)
     assert [h for h in hits] == [[0], [1], [0]]
     assert dup == 1                                          # 第三行与第一行同一个原子
 
     with pytest.raises(ValueError):
-        sel.to_csv(tmp_path / "x.csv", mode="selection")     # 展开需要目标
-    with pytest.raises(ValueError):
-        AtomArraySelector.from_csv(rules_path, mode="rule ")  # 模式名拼错就报错
+        # 展开需要目标: 选择表就是规则表按某个结构展平的结果, 没结构没法展
+        AtomArraySelection_SelectionCsv(output_io=tmp_path / "x.csv").write(sel, None)
 
 
-def test_from_csv_selection_escapes_literals(tmp_path):
+def test_row_ops_mirror_the_editor():
+    """add_rule / remove_rule / move_rule = GUI 的 加行 / 删行 / 上移下移。"""
+    arr = _tiny_array()
+    sel = AtomArraySelection(header=list(FIELDS) + ["note"])
+    assert sel.add_rule() == 0 and sel.rules == [[""] * 6]   # 加一整行空的 (命中一切)
+    # ins_code 的空 = "没有插入码", 要"任意"得写 "*" (目标里那个 N 带插入码 A)
+    assert sel.add_rule({"chain": "B", "name": "N", "ins_code": "*"}) == 1
+    # 列名认表头名与字段别名; 值是规则表里那格字符串, 不是 GUI 的 (模式, 输入) 对
+    assert sel.add_rule({"atom_name": "CA", "auth_asym_id": "A", "note": "A 链 CA"},
+                        index=0) == 0
+    assert sel.rules == [["", "A", "", "CA", "", "A 链 CA"],
+                         [""] * 6,
+                         ["*", "B", "", "N", "", ""]]
+    assert sel.indices(arr, dedupe=False).tolist() == [0, 0, 1, 2]   # 展平顺序 = 规则序
+
+    # 上移/下移: 动的是"哪个原子由哪条规则写进选择表"
+    assert sel.move_rule(0, 1) == 1 and sel.move_rule(2, 1) == 2     # 越界不动
+    assert sel.rules[1][:5] == ["", "A", "", "CA", ""]
+    assert sel.indices(arr, dedupe=False).tolist() == [0, 1, 0, 2]
+
+    assert sel.remove_rule(0) == [""] * 6                            # 删行返回被删的那行
+    assert len(sel.rules) == 2 and sel.remove_rule(-1)[-2:] == ["", ""]   # 负号从末尾数
+    with pytest.raises(IndexError):
+        sel.remove_rule(5)
+    with pytest.raises(ValueError) as excinfo:
+        sel.add_rule({"no_such_column": "x"})
+    assert "unknown column" in str(excinfo.value)
+
+
+def test_selection_csv_read_escapes_literals(tmp_path):
     """选择表里的具体值含语法字符时按字面值转义, 不会被当列表/范围/正则。"""
     path = tmp_path / "sel.csv"
     path.write_text("ins_code,chain,resi,name,altloc\n"
                     ",A,1,\"CA,CB\",\n"
                     ",A,1,\"re:x\",\n"
                     ",A,1,\"CA-CB\",\n")
-    sel = AtomArraySelector.from_csv(path, mode="selection")
+    sel = SelectionCsv_AtomArraySelection(input_io=path).read()
     assert [row[:5] for row in sel.rules] == [
         ["", "A", "1", "re:CA,CB", ""],
         ["", "A", "1", "re:re:x", ""],
         ["", "A", "1", "re:CA\\-CB", ""]]
     # 原样当规则表读则不是字面值: "CA,CB" 是列表 (命中 CA 或 CB)
-    plain = AtomArraySelector(rules=[["", "A", "1-2", "CA,CB", ""]])
+    plain = AtomArraySelection(rules=[["", "A", "1-2", "CA,CB", ""]])
     arr = _tiny_array()
     assert plain.indices(arr).tolist() == [0, 1]
     assert sel.indices(arr).tolist() == []
@@ -314,10 +349,10 @@ def test_altloc_field_matches_the_read_path(altloc_pdb):
     def ca(indices):
         return sorted(i for i in indices if arr.atom_name[i] == "CA")
 
-    both = AtomArraySelector(rules=[["", "A", "1-3", "CA", "*"]])
-    only_a = AtomArraySelector(rules=[["", "A", "1-3", "CA", "A"]])
-    only_b = AtomArraySelector(rules=[["", "A", "1-3", "CA", "B"]])
-    none_alt = AtomArraySelector(rules=[["", "A", "1-3", "CA", ""]])
+    both = AtomArraySelection(rules=[["", "A", "1-3", "CA", "*"]])
+    only_a = AtomArraySelection(rules=[["", "A", "1-3", "CA", "A"]])
+    only_b = AtomArraySelection(rules=[["", "A", "1-3", "CA", "B"]])
+    none_alt = AtomArraySelection(rules=[["", "A", "1-3", "CA", ""]])
     assert len(ca(both.indices(arr))) == 4                   # 3 个残基 + 重复的那个
     assert ca(only_a.indices(arr)) == [5] and ca(only_b.indices(arr)) == [12]
     assert [arr.res_id[i] for i in ca(only_a.indices(arr))] == [2]
@@ -336,7 +371,7 @@ def test_altloc_field_matches_the_read_path(altloc_pdb):
 def test_apply_atomarray_is_masked_indexing():
     """apply(AtomArray) = 布尔下标切片 (含坐标与注解)。"""
     arr = _tiny_array()
-    sel = AtomArraySelector(rules=[["", "A", "2", "*", ""]])
+    sel = AtomArraySelection(rules=[["", "A", "2", "*", ""]])
     sub = sel.apply(arr)
     assert isinstance(sub, AtomArray)
     assert sub.atom_name.tolist() == ["CB"] and sub.res_id.tolist() == [2]
@@ -346,7 +381,7 @@ def test_apply_atomarray_is_masked_indexing():
 
 def test_apply_internalcoord_keeps_coordinates(chain_ic):
     """整链选择: 结果原子数一致, 坐标逐原子与输入相同 (对拍, 不是单测)。"""
-    full = AtomArraySelector(rules=[["", "A", "*", "*", ""]])
+    full = AtomArraySelection(rules=[["", "A", "*", "*", ""]])
     sub = full.apply(chain_ic)
     assert len(sub) == len(chain_ic) == 16
     before, after = chain_ic.to_coords(), sub.to_coords()
@@ -356,7 +391,7 @@ def test_apply_internalcoord_keeps_coordinates(chain_ic):
            [chain_ic.atom_repr(i) for i in range(len(chain_ic))]
 
     # 残基 1-2 是一个自足的片段 (anchor 在残基 1), 8 个原子, 仍能长出来
-    head = AtomArraySelector(rules=[["", "A", "1-2", "*", ""]]).apply(chain_ic)
+    head = AtomArraySelection(rules=[["", "A", "1-2", "*", ""]]).apply(chain_ic)
     assert len(head) == 8 and len(head.to_coords()) == 8
     xyz = chain_ic.to_coords()
     assert all(np.allclose(head.to_coords()[i], xyz[i]) for i in range(8))
@@ -364,7 +399,7 @@ def test_apply_internalcoord_keeps_coordinates(chain_ic):
 
 def test_apply_internalcoord_rejects_a_cut_frame(chain_ic):
     """断了 anchor 的选择: 原子还在图里但长不出来 → ValueError 列出裸露原子。"""
-    sel = AtomArraySelector(rules=[["", "A", "2-4", "*", ""]])
+    sel = AtomArraySelection(rules=[["", "A", "2-4", "*", ""]])
     with pytest.raises(ValueError) as excinfo:
         sel.apply(chain_ic)
     msg = str(excinfo.value)
@@ -384,7 +419,7 @@ def test_atom_array_stack_is_rejected():
     for category in ("atom_name", "chain_id", "res_id", "res_name", "element", "ins_code",
                      "hetero"):
         setattr(stacked, category, getattr(arr, category))
-    sel = AtomArraySelector(rules=[["", "A", "*", "*", ""]])
+    sel = AtomArraySelection(rules=[["", "A", "*", "*", ""]])
     with pytest.raises(TypeError) as excinfo:
         sel.apply(stacked)
     assert "single model" in str(excinfo.value)
@@ -393,7 +428,7 @@ def test_atom_array_stack_is_rejected():
 
 def test_apply_leaves_the_input_alone(chain_ic):
     """apply 不就地改输入 (IC 子集是新建的对象, 连通表重新编号)。"""
-    full = AtomArraySelector(rules=[["", "A", "1-3", "*", ""]])
+    full = AtomArraySelection(rules=[["", "A", "1-3", "*", ""]])
     sub = full.apply(chain_ic)
     assert len(chain_ic) == 16 and len(sub) == 12
     assert max(chain_ic.dihedra) == max(q for q in chain_ic.dihedra)
@@ -437,13 +472,19 @@ def test_editor_full_flow(tmp_path, altloc_pdb):
         ",A,2,CA,A,规则五(与规则一重复)\n")
     out_path = tmp_path / "selection.csv"
 
-    sel = AtomArraySelector()
+    sel = AtomArraySelection()
     seen = {}
 
     def probe(api):
         state, selector = api["state"], api["selector"]
         assert len(selector.rules) == 5 and len(selector.header) == 6
         assert [len(row) for row in state["cells"]] == [6] * 5
+
+        # 窗口钉在亮色外观上 (macOS 默认 auto = 跟随系统深色)
+        root = api["root"]
+        if root.tk.call("tk", "windowingsystem") == "aqua":
+            seen["appearance"] = root.tk.call("tk::unsupported::MacWindowStyle",
+                                              "appearance", root._w)
 
         seen["start"] = (state["focus"], [n.cget("text") for n in state["rownums"]])
         # 灰字提示: 空框给"该模式下该怎么写", 换模式跟着换, 聚焦清掉
@@ -498,6 +539,7 @@ def test_editor_full_flow(tmp_path, altloc_pdb):
                    selection_csv=str(out_path), on_ready=probe)
 
     assert seen["hints"] == ["字面值", "留空=无 altloc", ""], seen["hints"]
+    assert seen["appearance"] == "aqua", seen["appearance"]   # 固定亮色, 不跟系统深色
     assert seen["hints_any"] == ["*=任意 altloc", "*"], seen["hints_any"]
     assert seen["cleared"] == ""
     assert seen["start"] == (0, ["▶ 1", "2", "3", "4", "5"]), seen["start"]
@@ -541,13 +583,13 @@ class TestSelectorOnInternalCoord:
     def test_altloc_rule_on_ic_cannot_tell(self):
         """带 altloc 约束的规则在 IC 上报"无法判定", 而不是静默当命中。"""
         ic = AtomArray_InternalCoord(input_io=_tiny_array()).convert()
-        sel = AtomArraySelector(rules=[["", "A", "1", "CA", "A"]])
+        sel = AtomArraySelection(rules=[["", "A", "1", "CA", "A"]])
         hits, warns, _dup = sel.resolve(ic)
         assert hits == [[]]
         assert warns[0] == ["目标没有 altloc 标注 (InternalCoord 不带; 手工拼的 AtomArray 也不带; "
                             "读文件请用 StructureFile_AtomArray), altloc 模式无法判定", "0 命中"]
         # 不带 altloc 约束的规则在 IC 上照常命中, tag 也不带构象后缀
-        hits2 = AtomArraySelector(rules=[["", "A", "1", "CA", ""]]).resolve(ic)[0]
+        hits2 = AtomArraySelection(rules=[["", "A", "1", "CA", ""]]).resolve(ic)[0]
         assert hits2 == [[0]] and ic.atom_repr(hits2[0][0]) == "A:1:GLY:CA"
 
 
