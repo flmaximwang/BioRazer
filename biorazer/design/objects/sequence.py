@@ -3,7 +3,8 @@ from abc import abstractmethod
 from pathlib import Path
 from collections import OrderedDict
 import pandas as pd
-from .basic import Entry, Library
+from .entry import Entry
+from .library import Library
 
 
 @dataclass
