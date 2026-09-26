@@ -1,6 +1,6 @@
 import re
 
-from biotite.sequence import AlphabetError, ProteinSequence
+from biorazer.sequence.objects import AlphabetError, ProteinSequence
 
 _MUTATION_RE = re.compile(r"^([A-Za-z])(\d+)([A-Za-z])$")
 

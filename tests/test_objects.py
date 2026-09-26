@@ -1,15 +1,17 @@
-"""``biorazer.structure.objects`` catalogue tests.
+"""Catalogue tests for ``biorazer.structure.objects`` / ``biorazer.sequence.objects``.
 
-The convention (user-established) is that **every structure object biorazer
-works with is enumerated once** in ``biorazer.structure.objects`` -- its own
-objects and the ones borrowed from biotite / rdkit / biopython / pyrosetta --
-and that every other module imports them from there instead of importing the
-provider package directly.  These tests pin both halves of that:
+The convention (user-established) is that **every object biorazer works with is
+enumerated once** in the catalogue of its layer -- ``biorazer.structure.objects``
+for structure objects (its own and the ones borrowed from biotite / rdkit /
+biopython / pyrosetta), ``biorazer.sequence.objects`` for the sequence objects
+borrowed from biotite -- and that every other module imports them from there
+instead of importing the provider package directly.  These tests pin both
+halves of that:
 
 * the catalogue re-exports the *same* classes as their provider packages
   (identity, not copies);
-* importing the catalogue does not drag in an optional dependency;
-* no module outside the catalogue references a borrowed object through the
+* importing the structure catalogue does not drag in an optional dependency;
+* no module outside the catalogues references a borrowed object through the
   provider (the "one home per object name" rule), checked on the source tree.
 """
 
@@ -22,16 +24,26 @@ import sys
 import pytest
 
 PACKAGE_ROOT = pathlib.Path(__file__).resolve().parents[1] / "biorazer"
-CATALOGUE = PACKAGE_ROOT / "structure" / "objects"
+CATALOGUES = (
+    PACKAGE_ROOT / "structure" / "objects",
+    PACKAGE_ROOT / "sequence" / "objects",
+)
 REPO_ROOT = PACKAGE_ROOT.parent
 
 #: Which names of a provider module are *objects* (and must therefore be
 #: imported from the catalogue).  The rest of each provider is deliberately not
-#: listed: helper functions (``biotite.structure.sasa``), file objects
-#: (``PDBFile``) and parsers/writers (``PDBParser``, ``PDBIO``) are not
-#: structure objects and stay imported from their provider where they are used.
+#: listed: helper functions (``biotite.structure.sasa``,
+#: ``biotite.sequence.align.align_multiple``), file objects (``PDBFile``,
+#: ``FastaFile``) and parsers/writers (``PDBParser``, ``PDBIO``) are not objects
+#: and stay imported from their provider where they are used.
 BANNED_FROM_IMPORTS = {
     "biotite.structure": {"AtomArray", "AtomArrayStack", "BondList", "BondType"},
+    "biotite.sequence": {
+        "ProteinSequence", "NucleotideSequence", "SequenceProfile",
+        "LetterAlphabet", "AlphabetError",
+    },
+    "biotite.sequence.profile": {"SequenceProfile"},
+    "biotite.sequence.align": {"Alignment", "SubstitutionMatrix"},
     "rdkit.Chem": {"Mol"},
     "Bio.PDB": {"Structure", "Model"},
     "Bio.PDB.internal_coords": {"IC_Chain"},
@@ -102,11 +114,13 @@ def _borrowed_object_uses(path):
 
 
 def test_public_names_reexported():
-    """Every name the catalogue advertises is importable from the package."""
+    """Every name each catalogue advertises is importable from its package."""
+    from biorazer.sequence import objects as SO
     from biorazer.structure import objects as O
 
-    for name in O.__all__:
-        assert hasattr(O, name), f"missing public name: {name}"
+    for catalogue in (O, SO):
+        for name in catalogue.__all__:
+            assert hasattr(catalogue, name), f"missing public name: {name}"
 
 
 def test_reexports_are_the_defining_objects():
@@ -124,6 +138,30 @@ def test_reexports_are_the_defining_objects():
     assert O.Mol is rd_mol.Mol is RdMol
     assert O.IC_Chain is bp_icchain.IC_Chain
     assert O.InternalCoord is not bt.AtomArray      # biorazer's own object
+
+
+def test_sequence_reexports_are_the_defining_objects():
+    """Same identity rule for the sequence catalogue."""
+    import biotite.sequence as bt_seq
+    import biotite.sequence.align as bt_align
+
+    from biorazer.sequence import objects as SO
+    from biorazer.sequence.objects import (
+        bt_align as seq_bt_align,
+        bt_alphabet,
+        bt_profile,
+        bt_sequence,
+    )
+
+    assert SO.ProteinSequence is bt_sequence.ProteinSequence is bt_seq.ProteinSequence
+    assert (SO.NucleotideSequence is bt_sequence.NucleotideSequence
+            is bt_seq.NucleotideSequence)
+    assert SO.SequenceProfile is bt_profile.SequenceProfile is bt_seq.SequenceProfile
+    assert SO.LetterAlphabet is bt_alphabet.LetterAlphabet is bt_seq.LetterAlphabet
+    assert SO.AlphabetError is bt_alphabet.AlphabetError is bt_seq.AlphabetError
+    assert SO.Alignment is seq_bt_align.Alignment is bt_align.Alignment
+    assert (SO.SubstitutionMatrix is seq_bt_align.SubstitutionMatrix
+            is bt_align.SubstitutionMatrix)
 
 
 def test_optional_dependency_is_not_imported():
@@ -164,6 +202,11 @@ OFFENDING_SOURCES = [
     "from biotite.structure import AtomArrayStack as Stack\n",
     "import biotite.structure as bio_struct\nx = bio_struct.BondList(3)\n",
     "from biotite import structure as bio_struct\nx: bio_struct.AtomArray = None\n",
+    "from biotite.sequence import ProteinSequence\n",
+    "from biotite.sequence import ProteinSequence, SequenceProfile\n",
+    "from biotite.sequence.profile import SequenceProfile\n",
+    "from biotite.sequence.align import Alignment, SubstitutionMatrix\n",
+    "import biotite.sequence as bio_seq\nx = bio_seq.LetterAlphabet('ACDE')\n",
     "from rdkit.Chem import Mol, SDWriter\n",
     "from Bio.PDB import Model as BioModel, Structure as BioStructure\n",
     "from Bio.PDB.internal_coords import IC_Chain\n",
@@ -175,8 +218,13 @@ ALLOWED_SOURCES = [
     "import biotite.structure as bio_struct\nx = bio_struct.sasa(structure)\n",
     "from biotite.structure.io import pdb, pdbx\n",
     "from biotite.structure.io.pdb.hybrid36 import encode_hybrid36\n",
+    "from biotite.sequence.io import fasta\n",
+    "from biotite.sequence.io.fasta import FastaFile\n",
+    "from biotite.sequence.align import align_multiple\n",
+    "from biotite.sequence.graphics import plot_sequence_logo\n",
     "from Bio.PDB import MMCIFIO, MMCIFParser, PDBIO, PDBParser\n",
     "from biorazer.structure.objects import AtomArray, BondList, Mol, IC_Chain\n",
+    "from biorazer.sequence.objects import Alignment, ProteinSequence\n",
 ]
 
 
@@ -198,13 +246,20 @@ def test_guard_allows_prose_helpers_and_the_catalogue(tmp_path, source):
 
 def test_borrowed_objects_are_referenced_only_from_the_catalogue():
     """No module outside ``objects/`` reaches a borrowed object via its provider."""
+
+    def excluded(path):
+        # The catalogues themselves, and ``sequence/archive`` -- frozen legacy
+        # code kept for reference, never migrated (see the archive modules).
+        return (any(catalogue in path.parents for catalogue in CATALOGUES)
+                or "archive" in path.parts)
+
     offences = []
     for path in sorted(PACKAGE_ROOT.rglob("*.py")):
-        if CATALOGUE in path.parents:
+        if excluded(path):
             continue
         for lineno, what in _borrowed_object_uses(path):
             offences.append(f"{path.relative_to(PACKAGE_ROOT)}:{lineno}: {what}")
     assert not offences, (
-        "borrowed structure objects reached outside "
-        "biorazer/structure/objects (import them from there instead):\n"
+        "borrowed objects reached outside biorazer/structure/objects / "
+        "biorazer/sequence/objects (import them from there instead):\n"
         + "\n".join(offences))

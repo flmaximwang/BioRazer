@@ -3,10 +3,8 @@ import sys
 
 import numpy as np
 import matplotlib.pyplot as plt
-from biotite.sequence import ProteinSequence
-
 from biorazer.sequence.io import Fasta_StrDict
-from ..util import Alignment
+from biorazer.sequence.objects import Alignment, ProteinSequence
 
 
 def plot_msa_coverage(

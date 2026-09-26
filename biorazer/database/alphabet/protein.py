@@ -4,7 +4,8 @@ Split out of ``biorazer.database.amino_acid`` (originally ``protein.py``).
 """
 
 import numpy as np
-from biotite.sequence import LetterAlphabet
+
+from biorazer.sequence.objects import LetterAlphabet
 
 COMMON_AA_NAME1 = "ACDEFGHIKLMNPQRSTVWY"
 COMMON_AA_ALPHABET = LetterAlphabet(list(COMMON_AA_NAME1))

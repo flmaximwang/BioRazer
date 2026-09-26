@@ -3,7 +3,7 @@ from __future__ import annotations
 from collections import Counter
 
 import matplotlib.pyplot as plt
-from biotite.sequence import ProteinSequence
+from biorazer.sequence.objects import ProteinSequence
 
 
 STANDARD_AMINO_ACIDS = tuple("ACDEFGHIKLMNPQRSTVWY")

@@ -5,18 +5,17 @@ per the package convention, object -> object conversions live in ``bridge``
 (see :mod:`biorazer.structure.bridge.atom_array` and
 :mod:`biorazer.structure.bridge.icchain`).
 
-Scope note: ``ProteinSequence`` belongs to biotite's *sequence* layer, which
-has not been catalogued yet -- ``biorazer.structure.objects`` enumerates
-structure objects only, and the sequence objects get their own
-``biorazer.sequence.objects`` in a later pass.  Until then this module imports
-``ProteinSequence`` from biotite directly, the way
-``biorazer.sequence.bridge.central_dogma`` already does.
+Scope note: ``ProteinSequence`` belongs to biotite's *sequence* layer, so it
+comes from :mod:`biorazer.sequence.objects` (the sequence catalogue), not from
+biotite directly -- the same "one home per object name" rule that governs
+:mod:`biorazer.structure.objects`.  This module only *bridges* the two layers;
+it defines no sequence object of its own.
 """
 
-import biotite.sequence as bt_seq
 import biotite.structure as bt_struct
 
 from biorazer.io import Converter
+from biorazer.sequence.objects import ProteinSequence
 from biorazer.structure.objects import AtomArray
 
 
@@ -29,7 +28,7 @@ def _residue_letter(chain_id, residue_name):
     structure was not protein.
     """
     try:
-        return bt_seq.ProteinSequence.convert_letter_3to1(residue_name)
+        return ProteinSequence.convert_letter_3to1(residue_name)
     except KeyError:
         raise ValueError(
             f"chain {str(chain_id)!r}: residue {str(residue_name)!r} has no "
@@ -63,5 +62,5 @@ class AtomArray_ProteinSequence(Converter):
             chain = array[array.chain_id == chain_id]
             _, residue_names = bt_struct.get_residues(chain)
             letters = [_residue_letter(chain_id, name) for name in residue_names]
-            sequences[chain_id] = bt_seq.ProteinSequence("".join(letters))
+            sequences[chain_id] = ProteinSequence("".join(letters))
         return sequences

@@ -3,8 +3,7 @@ import sys
 
 import matplotlib.pyplot as plt
 
-from biotite.sequence import ProteinSequence
-from biotite.sequence.align import Alignment, align_multiple, SubstitutionMatrix
+from biotite.sequence.align import align_multiple
 from biotite.sequence.graphics import (
     plot_alignment_type_based,
     plot_alignment_similarity_based,
@@ -12,6 +11,11 @@ from biotite.sequence.graphics import (
 )
 
 from biorazer.sequence.io import Fasta_StrDict
+from biorazer.sequence.objects import (
+    Alignment,
+    ProteinSequence,
+    SubstitutionMatrix,
+)
 
 
 def plot_msa(

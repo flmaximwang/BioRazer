@@ -1,6 +1,5 @@
 import numpy as np
-from biotite.sequence import SequenceProfile
-from biotite.sequence.align import Alignment
+from biorazer.sequence.objects import Alignment, SequenceProfile
 
 class AlignmentHelper:
 

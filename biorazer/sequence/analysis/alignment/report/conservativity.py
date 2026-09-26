@@ -1,6 +1,5 @@
 import numpy as np
-from biotite.sequence import SequenceProfile
-from biotite.sequence.align import Alignment
+from biorazer.sequence.objects import Alignment, SequenceProfile
 from biorazer.sequence.analysis.alignment.calculation import (
     calculate_entropy_position_wise,
 )
@@ -87,8 +86,7 @@ def report_different_positions(alignment: Alignment):
     Examples
     --------
     >>> import numpy as np
-    >>> from biotite.sequence import ProteinSequence
-    >>> from biotite.sequence.align import Alignment
+    >>> from biorazer.sequence.objects import Alignment, ProteinSequence
     >>> from biorazer.sequence.analysis.alignment.report import report_different_res_ids
     >>> seq1 = ProteinSequence("ACDEF")
     >>> seq2 = ProteinSequence("ACDEF")
