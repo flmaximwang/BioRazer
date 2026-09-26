@@ -3,6 +3,7 @@ import sys
 from pathlib import Path
 
 import numpy as np
+import pandas as pd
 from scipy.spatial import KDTree
 from biorazer.structure.objects import AtomArray
 from biorazer.display import print_with_decoration, print_decoration_line
@@ -607,3 +608,128 @@ def _run_interface_dsasa(args) -> None:
     if args.fmt == "list":
         for chain_id, res_id, d_sasa in (results or []):
             print(f"{chain_id}\t{res_id}\t{d_sasa}")
+
+
+def report_contact_specificity(contact_files, output_file=None, distance_column=None):
+    """
+    Summarize per-model atom-contact lists into one table with a specificity index.
+
+    The inputs are contact lists -- one CSV per model -- as written by PyMOL's
+    ``find_interactions_between``: two atom-label columns plus a distance column.
+    Labels are opaque strings here; in practice they are the macro labels
+    (``/model/segi/chain/resn`resi/name``) that BioRazer-PyMOL writes and that
+    PyMOL accepts as atom selectors, so the table can be fed straight back into
+    ``load_contacts``-style visualization. Column names are matched
+    case-insensitively (``atom1`` and ``Atom1`` both work), and the distance
+    column is recognized by elimination, so both the lowercase (``distance``) and
+    the capitalized (``Distance``) spellings pass.
+
+    Parameters
+    ----------
+    contact_files : list of str or pathlib.Path
+        One contact-list CSV per model.
+    output_file : str or pathlib.Path, optional
+        Also write the table to this CSV path.
+    distance_column : str, optional
+        Name of the distance column (case-insensitive). By default the single
+        column that is neither ``atom1`` nor ``atom2``.
+
+    Returns
+    -------
+    pandas.DataFrame
+        One row per atom pair seen in at least one model: ``atom1``, ``atom2``,
+        ``Specificity Index`` (how many models the pair occurs in), then one
+        column per model -- named by file stem -- holding that model's distance
+        (NaN where the model has no such contact). Rows sorted by label.
+
+    Notes
+    -----
+    Pairs are keyed by the label strings themselves, so two spellings of the same
+    atom stay two rows: the label format is the caller's contract.
+    """
+    if not contact_files:
+        raise ValueError("contact_files is empty: nothing to summarize")
+
+    model_names = [Path(path).stem for path in contact_files]
+
+    frames = []
+    for model_name, path in zip(model_names, contact_files):
+        frame = pd.read_csv(path)
+        frame.columns = [str(column).strip().lower() for column in frame.columns]
+        missing = {"atom1", "atom2"} - set(frame.columns)
+        if missing:
+            raise ValueError(f"{path}: missing column(s) {sorted(missing)}")
+        if distance_column is None:
+            candidates = [c for c in frame.columns if c not in ("atom1", "atom2")]
+            if len(candidates) != 1:
+                raise ValueError(
+                    f"{path}: cannot tell which column holds the distance "
+                    f"(candidates: {candidates}); pass distance_column="
+                )
+            distance_name = candidates[0]
+        else:
+            distance_name = distance_column.strip().lower()
+            if distance_name not in frame.columns:
+                raise ValueError(f"{path}: no column named {distance_column!r}")
+        if frame.empty:
+            continue
+        frames.append(
+            frame[["atom1", "atom2", distance_name]]
+            .assign(model=model_name)
+            .rename(columns={distance_name: "distance"})
+        )
+
+    if not frames:
+        # every model had an empty contact list
+        table = pd.DataFrame(
+            columns=["atom1", "atom2", "Specificity Index", *model_names]
+        )
+    else:
+        combined = pd.concat(frames, ignore_index=True).drop_duplicates(
+            subset=["atom1", "atom2", "model"]
+        )
+        table = combined.pivot(
+            index=["atom1", "atom2"], columns="model", values="distance"
+        ).reindex(columns=model_names)
+        table.insert(0, "Specificity Index", table.notna().sum(axis=1))
+        table = table.reset_index()
+
+    if output_file is not None:
+        table.to_csv(output_file, index=False)
+    return table
+
+# --- report-contact-specificity 子命令 ---
+
+def _add_contact_specificity_parser(sub):
+    p = sub.add_parser(
+        "report-contact-specificity",
+        help="汇总多个模型的接触列表, 统计每个接触出现在几个模型里",
+        description=(
+            "把多个模型的接触列表 CSV 汇总成一张表: 每个接触一行, 列为\n"
+            "atom1 / atom2 / Specificity Index (该接触出现的模型数) + 每个模型一列距离。\n"
+            "输入格式即 PyMOL find_interactions_between 写出的接触列表: 列名大小写不敏感,\n"
+            "距离列按排除法识别 (即除 atom1/atom2 之外唯一的一列)。"
+        ),
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+    )
+    p.add_argument("-i", "--inputs", required=True, nargs="+", metavar="CSV",
+                   help="每个模型一个接触列表 CSV (至少一个)")
+    p.add_argument("-o", "--output", default=None, metavar="CSV",
+                   help="汇总表写出的路径 (默认不写盘, 只打印表格)")
+    p.add_argument("--distance-column", default=None, metavar="NAME",
+                   help="距离列名, 缺省按排除法自动识别")
+    p.set_defaults(func=_run_contact_specificity)
+    return p
+
+
+def _run_contact_specificity(args) -> None:
+    """执行 report-contact-specificity 子命令"""
+    table = report_contact_specificity(
+        args.inputs,
+        output_file=args.output,
+        distance_column=args.distance_column,
+    )
+    if args.output is None:
+        print(table.to_string(index=False))
+    else:
+        print(f"{table.shape[0]} 行 x {table.shape[1]} 列 -> {args.output}")

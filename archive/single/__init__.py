@@ -1,1 +1,0 @@
-# This package provides lots of methods to analyze a single structure.

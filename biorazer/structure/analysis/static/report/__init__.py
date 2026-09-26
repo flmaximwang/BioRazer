@@ -1,4 +1,5 @@
 from .contact import (
+    report_contact_specificity,
     report_inter_steric_clashes,
     report_interface_contact_matrix,
     report_interface_dSASA,
@@ -9,6 +10,7 @@ from .hbond import report_buried_unsat_hbonds, report_hbonds
 
 
 __all__ = [
+    "report_contact_specificity",
     "report_interface_residues",
     "report_interface_contact_matrix",
     "report_interface_dSASA",

@@ -1,1 +1,0 @@
-from biotite.sequence import ProteinSequence

@@ -1,6 +1,5 @@
-import ensembl_rest
 import requests, sys, json
-from ...genome_analyzer.utils import nt_utils
+from ....sequence.manipulation.util import get_mRNA_from_transcript
 
 def parse_kwargs_to_ext(ext, **kwargs):
     if kwargs:
@@ -75,7 +74,7 @@ def get_mRNA_from_ensembl_transcript(transcript_id):
     simplified_exons = []
     for exon in exons:
         simplified_exons.append((exon["start"] - transcript_start, exon["end"] - transcript_start))
-    mRNA_seq = nt_utils.get_mRNA_from_transcript(transcript_seq, simplified_exons)
+    mRNA_seq = get_mRNA_from_transcript(transcript_seq, simplified_exons)
     return mRNA_seq
 
 def ensembl_transcript_haplotypes_get(id, species, headers = {"Content-Type": "application/json"}, **kwargs):
