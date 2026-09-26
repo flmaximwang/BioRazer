@@ -13,7 +13,7 @@ Attributes
 ----------
 atoms : list[InternalCoordAtom]
     One entry per atom, carrying PDB-style annotations but no coordinates:
-    ``(ins_code, chain_id, res_name, res_id, name, element)``.
+    ``(ins_code, chain_id, res_name, res_id, name, element, altloc_id)``.
 anchor : dict[int, tuple[float,float,float]]
     ``{atom_index: (x,y,z)}``.  The anchor can be any atoms, but per the
     user's design it must be **3 consecutive atoms of a single dihedral**
@@ -165,6 +165,12 @@ class InternalCoordAtom:
     element : str | None
         Element symbol.  ``None`` (the default) derives it from ``name``:
         its first character when that is ``N``/``O``/``S``, otherwise ``"C"``.
+    altloc_id : str
+        Alternate-conformation label (the PDB altLoc column), empty when the
+        atom has no alternate conformation.  Mirrors ``AtomArray.altloc_id``,
+        including its biotite quirk: only an array read with
+        ``altloc="all"`` carries that category at all (see
+        :data:`NULL_ALT`).
 
     ``repr=False`` keeps the custom ``__repr__`` below; ``eq=False`` keeps
     **identity** equality and therefore hashability, because the record is
@@ -179,6 +185,7 @@ class InternalCoordAtom:
     res_id: int = 1
     name: str = "N"
     element: str | None = None
+    altloc_id: str = ""
 
     def __post_init__(self):
         if self.element is None:
@@ -187,6 +194,13 @@ class InternalCoordAtom:
 
     def __repr__(self):
         return f"AtomRecord({self.chain_id}:{self.res_id}:{self.res_name}:{self.name})"
+
+
+#: biotite spells "no alternate conformation" three ways depending on the
+#: source: an empty PDB altLoc column is ``" "``, an mmCIF ``"."``, and a
+#: missing value ``"?"``.  :class:`InternalCoordAtom` (and the selector's
+#: field view) normalise all three to the empty string.
+NULL_ALT = ("", " ", ".", "?")
 
 
 def _annotation_accessor(rec_attr, name, dtype, cast, doc):
@@ -408,10 +422,13 @@ class InternalCoord:
         """Human/PDB-style tag for atom ``i`` (no coordinates).
 
         Format: ``{chain_id}:{res_id}:{res_name}:{name}``, e.g. ``A:1:SER:N``.
+        An alternate-conformation label is appended in parentheses:
+        ``A:1:SER:CB(A)``.
         """
         a = self.atoms[i]
         assert isinstance(a, InternalCoordAtom)
-        return f"{a.chain_id}:{a.res_id}:{a.res_name}:{a.name}"
+        alt = f"({a.altloc_id})" if a.altloc_id else ""
+        return f"{a.chain_id}:{a.res_id}:{a.res_name}:{a.name}{alt}"
 
     # Per-atom annotation views, mirroring ``AtomArray``.  Each is a
     # property+setter: ``ic.chain_id`` returns a numpy array over all atoms
@@ -443,6 +460,11 @@ class InternalCoord:
         "Insertion code of every atom as a numpy array (mirrors "
         "``AtomArray.ins_code``).  Set with a scalar or a length-``len(ic)`` "
         "sequence.")
+    altloc_id = _annotation_accessor(
+        "altloc_id", "altloc_id", None, str,
+        "Alternate-conformation label of every atom as a numpy array (mirrors "
+        "``AtomArray.altloc_id``; empty = no alternate conformation).  Set "
+        "with a scalar or a length-``len(ic)`` sequence.")
 
     def dihedra_pd(self):
         """Dihedrals as a pandas table (easy filtering).
