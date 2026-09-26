@@ -11,6 +11,9 @@ modules by concern:
   Bio.PDB file parsers/writers the IC_Chain converters need.
 - :mod:`._pose` — PyRosetta Pose helpers (imports stay lazy: PyRosetta is an
   optional dependency).
+
+:class:`StructureFile_AtomArray` (suffix dispatch over the two readers above) is
+defined here as well, right next to the readers it picks between.
 """
 
 import io
@@ -42,6 +45,44 @@ class Pdb_AtomArray(Converter):
 class Cif_AtomArray(Converter):
     def read(self, **kwargs) -> AtomArray:
         return pdbx.get_structure(pdbx.CIFFile.read(self.input_io), **kwargs)[0]
+
+
+class StructureFile_AtomArray(Converter):
+    """
+    Converts a structure file to a biotite :class:`AtomArray`, the format
+    taken from the file suffix.
+
+    ``.pdb`` goes through :class:`Pdb_AtomArray`, ``.cif`` / ``.mmcif``
+    through :class:`Cif_AtomArray`; anything else raises :class:`ValueError`
+    -- guessing a format from the file contents is not worth a silent
+    misread.  This is the entry point for callers that were handed *some*
+    structure file (a file picker, a CLI argument) and would otherwise write
+    their own suffix branch.
+
+    Model 1 is returned and **all** altlocs are kept by default
+    (``altloc="all"``): a per-atom selection over the result then never
+    silently loses the duplicate keys an alternate conformation produces.
+    Pass ``altloc`` to override (biotite's default is ``"first"``).
+
+    Parameters
+    ----------
+    input_io : str or Path
+        Structure file to read.
+    """
+
+    #: suffix -> reader class
+    READERS = {"pdb": Pdb_AtomArray, "cif": Cif_AtomArray, "mmcif": Cif_AtomArray}
+
+    def read(self, altloc: str = "all", **kwargs) -> AtomArray:
+        suffix = str(self.input_io).lower().rsplit(".", 1)[-1]
+        try:
+            reader = self.READERS[suffix]
+        except KeyError:
+            raise ValueError(
+                f"unsupported structure format: {self.input_io!r} "
+                f"(expected one of {sorted('.' + s for s in self.READERS)})"
+            ) from None
+        return reader(input_io=self.input_io).read(altloc=altloc, **kwargs)
 
 
 class AtomArray_Cif(Converter):
