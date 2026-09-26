@@ -33,6 +33,20 @@ from biorazer.structure.objects import AtomArray, InternalCoord, InternalCoordAt
 from biorazer.structure.objects.internal_coords import dihedral
 
 
+def altloc_labels(atom_array) -> list[str]:
+    """AltLoc labels carried by ``atom_array``, ``[]`` when it carries none.
+
+    An empty PDB altLoc column reads back as ``" "``, an mmCIF one as ``"."``
+    or ``"?"`` -- all "no alternate conformation", stripped to ``""`` (the
+    spellings of biotite 1.6's ``altloc_id`` category, which an array only
+    has after a read with ``altloc="all"``).
+    """
+    labels = getattr(atom_array, "altloc_id", None)
+    if labels is None:
+        return []
+    return [str(x).strip(" .?") for x in labels]
+
+
 def _atom_record(atom_array, index) -> InternalCoordAtom:
     """Read one ``AtomArray`` row into an :class:`InternalCoordAtom`.
 
@@ -84,6 +98,23 @@ class AtomArray_InternalCoord(Converter):
       grow-path table ``IC_PATH`` (chi rotamers; see
       ``biorazer.database.molecule.icoor.protein.topology``).  Non-standard /
       non-protein atoms (water, ligands, hydrogens) are not covered.
+
+    **No alternate conformations.**  An :class:`InternalCoordAtom` carries no
+    altloc field: this is a grow tree keyed by
+    ``(chain_id, res_id, ins_code, name)``, i.e. **one slot per atom name**,
+    and the peptide quads are recorded only when the ``C_i - N_{i+1}``
+    distance is within the C-N bond-length bound.  A duplicate name would
+    silently keep one copy (the last one in array order), and losing that
+    lottery once orphans everything downstream -- measured on 2VB1, whose
+    ``THR43`` ``C`` has an altloc B copy 1.454 A from ``N44`` (over the
+    1.371 A bound) while the bonded altloc A copy is 1.313 A: keeping B
+    breaks the chain at 44 and leaves 654 of 2900 records unplaceable.
+    ``convert`` therefore **refuses** an array that carries altloc labels
+    (``ValueError``, naming how many atoms); resolve them before converting
+    (read with ``altloc="first"``, or pass a selection that has none).
+    ``altloc="first"`` is biotite's rule (per atom, the first record), not a
+    geometric one, so an array resolved that way can still break the chain
+    elsewhere -- picking a self-consistent conformer set is the caller's job.
 
     Anchors default to the first three backbone atoms ``N, CA, C`` of every
     chain (one connected-component root per chain).
@@ -140,6 +171,19 @@ class AtomArray_InternalCoord(Converter):
         from biorazer.database.molecule.bond.length.protein import AMINO_ACID_BOND_LENGTH
 
         arr = self.input_io
+        marked = [i for i, label in enumerate(altloc_labels(arr)) if label]
+        if marked:
+            head = ", ".join(
+                f"{arr.chain_id[i]}/{arr.res_id[i]}/{arr.res_name[i]}/"
+                f"{arr.atom_name[i]} altloc {str(arr.altloc_id[i])!r}"
+                for i in marked[:3])
+            raise ValueError(
+                f"the input AtomArray carries alternate conformations "
+                f"({len(marked)} of {len(arr)} atoms, e.g. {head}); "
+                f"InternalCoord has no altloc -- one record per "
+                f"(chain, res_id, ins_code, atom name) -- so resolve them "
+                f"before converting (read with altloc=\"first\", or pass a "
+                f"selection that has none)")
         n = len(arr)
         atoms = [_atom_record(arr, i) for i in range(n)]
         ic = InternalCoord(atoms=atoms)
@@ -297,6 +341,11 @@ class InternalCoord_AtomArray(Converter):
     records supply the annotations.  Categories ``InternalCoordAtom`` does not
     carry (``hetero``, ``b_factor``, ``charge``, ...) come back at biotite's
     constructor defaults.
+
+    ``altloc_id`` is not among the categories that come back, because an
+    :class:`InternalCoordAtom` does not carry one (biotite's PDB writer would
+    ignore it anyway -- measured: the altLoc column stays blank).  Note that
+    ``hetero``/``b_factor``/... are not restored either.
     """
 
     def convert(self, tol=1e-6) -> AtomArray:

@@ -13,7 +13,9 @@ Attributes
 ----------
 atoms : list[InternalCoordAtom]
     One entry per atom, carrying PDB-style annotations but no coordinates:
-    ``(ins_code, chain_id, res_name, res_id, name, element)``.
+    ``(ins_code, chain_id, res_name, res_id, name, element)``.  No altloc --
+    this is a grow tree, one slot per atom name (see
+    :class:`~biorazer.structure.bridge.AtomArray_InternalCoord`).
 anchor : dict[int, tuple[float,float,float]]
     ``{atom_index: (x,y,z)}``.  The anchor can be any atoms, but per the
     user's design it must be **3 consecutive atoms of a single dihedral**
@@ -165,6 +167,12 @@ class InternalCoordAtom:
     element : str | None
         Element symbol.  ``None`` (the default) derives it from ``name``:
         its first character when that is ``N``/``O``/``S``, otherwise ``"C"``.
+
+    An atom record carries **no alternate conformation**: ``InternalCoord``
+    is a grow tree keyed by ``(chain_id, res_id, ins_code, name)``, i.e. one
+    slot per atom name, so the bridge refuses an ``AtomArray`` that carries
+    altloc labels (see
+    :class:`~biorazer.structure.bridge.AtomArray_InternalCoord`).
 
     ``repr=False`` keeps the custom ``__repr__`` below; ``eq=False`` keeps
     **identity** equality and therefore hashability, because the record is
