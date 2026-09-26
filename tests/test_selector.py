@@ -8,6 +8,8 @@
 * 行操作 (add_rule / remove_rule / move_rule = GUI 的 加行 / 删行 / 上移下移);
 * 规则表 → 选择表 → 规则表 的往返 (四个 csv 转换器), 以及**选择表当规则表打开**时
   每个具体值只命中它自己;
+* PyMOL 选择式文本 (一个命中原子一个 ``/model//chain/resi/name`` 宏, ``or`` 串成一条
+  ``select`` 命令) 的生成与解析, 以及选择表 ↔ 文本两个组合转换器 (中间层是规则表);
 * 展平顺序 (规则序 → 原子序) 与去重语义, mask / indices 两个转换器;
 * ``apply`` 对 ``AtomArray`` 与 ``InternalCoord`` 两种目标的判据 (后者要求选择保住连通性);
 * GUI 编辑器全流程 (建表/提示/高亮/展开/回写), 没有显示环境时 skip。
@@ -28,10 +30,16 @@ from biorazer.structure.bridge import (
     AtomArray_InternalCoord,
     AtomArraySelection_AtomArrayMask,
     AtomArraySelection_AtomArrayIndices,
+    AtomArraySelection_PyMOLSelection,
     AtomArraySelection_RuleCsv,
     AtomArraySelection_SelectionCsv,
+    Indices_PyMOLSelection,
+    Mask_PyMOLSelection,
+    PyMOLSelection_AtomArraySelection,
+    PyMOLSelection_SelectionCsv,
     RuleCsv_AtomArraySelection,
     SelectionCsv_AtomArraySelection,
+    SelectionCsv_PyMOLSelection,
 )
 from biorazer.structure.io import StructureFile_AtomArray
 from biorazer.structure.objects import AtomArray, AtomArraySelection
@@ -330,6 +338,150 @@ def test_selection_csv_read_escapes_literals(tmp_path):
     arr = _tiny_array()
     assert plain.indices(arr).tolist() == [0, 1]
     assert sel.indices(arr).tolist() == []
+
+
+# --------------------------------------------------------------------------
+# PyMOL 选择式文本 (一个命中原子一个 /model//chain/resi/name 宏)
+# --------------------------------------------------------------------------
+
+def test_pymol_text_is_one_macro_per_atom():
+    """规则表 → 文本: 一个命中原子一个宏; 展开依据是结构, model 必填 (空 model 实测选不中)。"""
+    arr = _tiny_array()
+    sel = AtomArraySelection(rules=[["", "A", "1-2", "C*", ""], ["A", "B", "1", "N", ""]])
+    text = AtomArraySelection_PyMOLSelection(input_io=sel).convert(arr, model="m")
+    assert text == "select sel, /m//A/1/CA or /m//A/2/CB or /m//B/1A/N\n"   # 插入码在 resi 后面
+    assert AtomArraySelection_PyMOLSelection(input_io=sel).convert(
+        arr, model="m", name="pick").startswith("select pick, ")
+
+    with pytest.raises(ValueError) as excinfo:
+        AtomArraySelection_PyMOLSelection(input_io=sel).convert(arr, model="")
+    assert "//A/1/CA" in str(excinfo.value)
+    with pytest.raises(ValueError):
+        AtomArraySelection_PyMOLSelection(input_io=sel).convert(None, model="m")
+
+    none = AtomArraySelection(rules=[["", "Z", "1", "CA", ""]])           # 0 命中
+    assert AtomArraySelection_PyMOLSelection(input_io=none).convert(arr, "m") == \
+        "select sel, none\n"
+
+
+def test_pymol_text_roundtrip_through_the_rule_table():
+    """文本 → 规则表 → 文本 稳定, 选出来的原子一致; dedupe 只管同一个原子写几次。"""
+    arr = _tiny_array()
+    sel = AtomArraySelection(rules=[["", "A", "1-2", "C*", ""], ["A", "B", "1", "N", ""]])
+    text = AtomArraySelection_PyMOLSelection(input_io=sel).convert(arr, model="m")
+    back = PyMOLSelection_AtomArraySelection().convert(text)
+    assert back.header == list(FIELDS)                      # model / select 名不进规则表
+    assert back.rules[2][:5] == ["A", "B", "1", "N", "*"]  # 插入码回来了; altloc = 任意 (宏没这格)
+    assert back.indices(arr).tolist() == sel.indices(arr).tolist() == [0, 1, 2]
+    assert AtomArraySelection_PyMOLSelection(input_io=back).convert(arr, model="m") == text
+
+    dup = AtomArraySelection(rules=[["", "A", "1", "CA", ""], ["", "A", "1-2", "C*", ""]])
+    assert AtomArraySelection_PyMOLSelection(input_io=dup).convert(arr, "m") == \
+        "select sel, /m//A/1/CA or /m//A/2/CB\n"
+    assert AtomArraySelection_PyMOLSelection(input_io=dup).convert(arr, "m", dedupe=False) == \
+        "select sel, /m//A/1/CA or /m//A/1/CA or /m//A/2/CB\n"
+
+
+def test_pymol_text_rejects_anything_but_its_own_shape():
+    """只读自己写出的宏形式: 规则式/少段/多段/segi/非具体 resi/别的关键字都报错, 不猜。"""
+    parse = PyMOLSelection_AtomArraySelection().convert
+    for bad in ("chain A and resi 1",             # 人工写的规则式选择式
+                "select x, //A/1/CA",             # 空 model = 少一段
+                "/m//A/1/CA/extra",               # 多一段
+                "/m/A/A/1/CA",                    # segi 有值 (规则表没这列)
+                "/m//A/1-10/CA",                  # resi 不是具体值
+                "/m//A/1/CA and resi 2",          # 宏后面只接 and alt
+                "select x,"):                     # select 后面没东西
+        with pytest.raises(ValueError):
+            parse(bad)
+    # 空行 / # 注释 / 行尾分号 (从 pml 里拷出来的样子) 照吃
+    assert parse("# 说明\n\nselect x, /m//A/1/CA;\n").rules == [["", "A", "1", "CA", "*"]]
+
+
+def test_pymol_text_does_not_split_conformers(altloc_pdb):
+    """宏没有 altloc 那一格: 文本同时命中同名同号的多个构象 —— 这是要的语义, 不是漏格。"""
+    arr = StructureFile_AtomArray(input_io=altloc_pdb).read()     # 残基 2 的 CA 有 A/B 两份
+    only_a = AtomArraySelection(rules=[["", "A", "2", "CA", "A"]])
+    text = AtomArraySelection_PyMOLSelection(input_io=only_a).convert(arr, model="m")
+    assert text == "select sel, /m//A/2/CA\n"                     # 不写 and alt
+    assert only_a.indices(arr).tolist() == [5]
+
+    # 反向解析: 宏里没有 altloc = PyMOL 的"任意构象" → 记成 * (不是"没有 altloc", 那会静默收窄)
+    back = PyMOLSelection_AtomArraySelection().convert(text)
+    assert back.rules[0][:5] == ["", "A", "2", "CA", "*"]
+    assert back.indices(arr).tolist() == [5, 12]                  # 两份构象一起回来
+
+
+def test_pymol_text_and_selection_csv_both_ways(tmp_path):
+    """两个组合转换器 (中间层都是规则表): 选择表 → 文本, 文本 → 选择表。"""
+    arr = _tiny_array()
+    sel = AtomArraySelection(rules=[["", "A", "1-2", "C*", ""]])
+    csv_path = tmp_path / "selection.csv"
+    AtomArraySelection_SelectionCsv(output_io=csv_path).write(sel, arr)
+    assert SelectionCsv_PyMOLSelection(input_io=csv_path).read(model="m") == \
+        "select sel, /m//A/1/CA or /m//A/2/CB\n"
+
+    out_path = tmp_path / "back.csv"
+    PyMOLSelection_SelectionCsv(output_io=out_path).write(
+        SelectionCsv_PyMOLSelection(input_io=csv_path).read(model="m"), arr)
+    assert list(csv.reader(out_path.open())) == [
+        list(FIELDS), ["", "A", "1", "CA", ""], ["", "A", "2", "CB", ""]]
+
+    empty = tmp_path / "empty.csv"
+    empty.write_text(",".join(FIELDS) + "\n")
+    assert SelectionCsv_PyMOLSelection(input_io=empty).read(model="m") == "select sel, none\n"
+
+    bad = tmp_path / "bad.csv"                                            # 选择表里混进范围
+    bad.write_text(",".join(FIELDS) + "\n,A,1-2,CA,\n")
+    with pytest.raises(ValueError) as excinfo:
+        SelectionCsv_PyMOLSelection(input_io=bad).read(model="m")
+    assert "不是具体值" in str(excinfo.value)
+
+
+def test_mask_and_indices_to_pymol(altloc_pdb):
+    """mask / indices → 文本: 中间层是规则表 (每原子一条字面值规则), 两端一致。"""
+    arr = _tiny_array()
+    mask = np.array([True, False, True])
+    from_mask = Mask_PyMOLSelection(input_io=mask).convert(arr, model="m")
+    from_idx = Indices_PyMOLSelection(input_io=np.array([0, 2])).convert(arr, model="m")
+    assert from_mask == from_idx == "select sel, /m//A/1/CA or /m//B/1A/N\n"
+    # 重复下标只写一次, 顺序按结构 (PyMOL 列选择也是结构序)
+    assert Indices_PyMOLSelection(input_io=[2, 0, 2, 0]).convert(arr, "m") == from_idx
+    # 中间层就是选择器: 文本 → 规则表 → mask 与原 mask 相同
+    back = PyMOLSelection_AtomArraySelection().convert(from_mask)
+    assert (back.mask(arr) == mask).all()
+
+    # 全 False / 空下标 → PyMOL 的空选择
+    assert Mask_PyMOLSelection(input_io=np.zeros(3, bool)).convert(arr, "m") == \
+        "select sel, none\n"
+
+    # mask 长度对不上 / 下标越界: 报错, 不静默选错原子
+    with pytest.raises(ValueError) as excinfo:
+        Mask_PyMOLSelection(input_io=np.ones(4, bool)).convert(arr, "m")
+    assert "对不上结构的 3 个原子" in str(excinfo.value)
+    with pytest.raises(ValueError) as excinfo:
+        Indices_PyMOLSelection(input_io=np.array([0, 9])).convert(arr, "m")
+    assert "out of range" in str(excinfo.value)
+
+    # 带 altloc 的结构: 同名同号的两份构象在文本里是同一个宏 (文本这层不挑构象)
+    arr_alt = StructureFile_AtomArray(input_io=altloc_pdb).read()
+    text = Mask_PyMOLSelection(input_io=arr_alt.atom_name == "CA").convert(arr_alt, "m")
+    assert text.count(" or ") == 3 and "alt" not in text          # 4 个 CA: 1A/2A/2B/3A
+    text_a = Indices_PyMOLSelection(input_io=np.array([5])).convert(arr_alt, "m")
+    assert text_a == "select sel, /m//A/2/CA\n"
+    assert PyMOLSelection_AtomArraySelection().convert(text_a).indices(arr_alt).tolist() == [5, 12]
+
+
+def test_mask_to_pymol_rejects_a_stack():
+    """AtomArrayStack 走同一道门 (布尔下标在它上面切的是 model 轴)。"""
+    from biotite.structure import AtomArrayStack
+
+    arr = _tiny_array()
+    stacked = AtomArrayStack(2, len(arr))
+    stacked.coord = np.stack([arr.coord, arr.coord + 1.0])
+    with pytest.raises(TypeError) as excinfo:
+        Mask_PyMOLSelection(input_io=np.ones(len(arr), bool)).convert(stacked, "m")
+    assert "single model" in str(excinfo.value)
 
 
 # --------------------------------------------------------------------------

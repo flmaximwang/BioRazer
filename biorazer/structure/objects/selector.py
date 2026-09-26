@@ -56,9 +56,21 @@
 PDB/auth 口径 (biotite 的 ``use_author_fields`` 默认值)。
 
 规则表/选择表的 csv 由 :mod:`biorazer.structure.bridge.selector` 的四个转换器读写 (本模块
-不碰文件); 结构文件的读取走 :mod:`biorazer.structure.io` (``StructureFile_AtomArray``);
+不碰文件); 同一个模块里还有一段 **PyMOL 选择式文本** (一个原子一个 ``/model//chain/resi/name``
+宏, ``or`` 串成一行 ``select`` 命令) 的两个转换器, 以及把文本当中间层的两个组合转换器
+(选择表 ↔ 文本); 结构文件的读取走 :mod:`biorazer.structure.io` (``StructureFile_AtomArray``);
 变成 mask / indices 的两个转换器 (``AtomArraySelection_AtomArrayMask`` /
 ``AtomArraySelection_AtomArrayIndices``) 也在那里; GUI 在同包的私有模块 ``_selector_gui``。
+
+用法 (PyMOL 文本这一步):::
+
+    text = AtomArraySelection_PyMOLSelection(input_io=sel).convert(arr, model="design")
+    Path("sel.pml").write_text(text)                 # 粘进 PyMOL: select sel, /design//A/1/CA or ...
+    sel = PyMOLSelection_AtomArraySelection().convert(text)
+    PyMOLSelection_SelectionCsv(output_io="out.csv").write(text, arr)
+    text = SelectionCsv_PyMOLSelection(input_io="selection.csv").read(model="design")
+    text = Mask_PyMOLSelection(input_io=mask).convert(arr, model="design")
+    text = Indices_PyMOLSelection(input_io=idx).convert(arr, model="design")
 
 已知边界: 五元组 (ins_code, chain, resi, name, altloc) 不是全局唯一 —— 同一残基上多个原子
 重名、或目标不带 altloc 标注时会出现同 key 的多个原子 (命中重复会在警告里报个数)。展平**默认

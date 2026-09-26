@@ -196,6 +196,12 @@ def test_bridge_converter_classes_are_reexported():
         "AtomArraySelection_RuleCsv",
         "SelectionCsv_AtomArraySelection",
         "AtomArraySelection_SelectionCsv",
+        "AtomArraySelection_PyMOLSelection",
+        "PyMOLSelection_AtomArraySelection",
+        "PyMOLSelection_SelectionCsv",
+        "SelectionCsv_PyMOLSelection",
+        "Mask_PyMOLSelection",
+        "Indices_PyMOLSelection",
     }
     for name in B.__all__:
         assert isinstance(getattr(B, name), type), name
