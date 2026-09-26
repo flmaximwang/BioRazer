@@ -2,11 +2,10 @@ import re
 from collections.abc import Iterable
 
 import numpy as np
-from biotite.sequence import ProteinSequence
 from biotite.sequence.io import fasta
-from biotite.sequence.profile import SequenceProfile
 
 from biorazer.io import Converter
+from biorazer.sequence.objects import ProteinSequence, SequenceProfile
 
 
 class StrDict_Fasta(Converter):

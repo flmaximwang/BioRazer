@@ -1,6 +1,6 @@
 import numpy as np
 from biorazer.structure.objects import AtomArray
-import biotite.sequence as bio_seq
+from biorazer.sequence.objects import ProteinSequence
 from .. import report
 from ....selection.mask import complex
 from .array import sasa_array, buried_unsat_hbond, hbond
@@ -20,13 +20,13 @@ def _normalize_sum_aas(sum_aas: str, atom_array: AtomArray):
             res_str = TYPES2AA[sum_aas]
         except KeyError:
             for aa in sum_aas:
-                if aa not in bio_seq.ProteinSequence.alphabet:
+                if aa not in ProteinSequence.alphabet:
                     raise ValueError(f"Invalid amino acid: {aa}")
             res_str = sum_aas
     else:
         raise ValueError("sum_aas must be a string, list or None")
 
-    return [bio_seq.ProteinSequence.convert_letter_1to3(aa) for aa in res_str]
+    return [ProteinSequence.convert_letter_1to3(aa) for aa in res_str]
 
 
 def sasa_value(

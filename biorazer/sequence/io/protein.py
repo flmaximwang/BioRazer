@@ -1,8 +1,8 @@
 from biorazer.io import Converter
 from biorazer.sequence.io import StrDict_Fasta
 from biotite.sequence.io import fasta
-from biotite.sequence import ProteinSequence
-from biotite.sequence.align import Alignment
+
+from biorazer.sequence.objects import Alignment, ProteinSequence
 
 class Fasta_ProteinSequence(Converter):
     """

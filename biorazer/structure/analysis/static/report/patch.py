@@ -4,7 +4,7 @@ from collections import defaultdict
 
 import numpy as np
 from biorazer.structure.objects import AtomArray
-import biotite.sequence as bio_seq
+from biorazer.sequence.objects import ProteinSequence
 from scipy.spatial import KDTree
 
 from biorazer.display import print_decoration_line, print_with_decoration
@@ -49,7 +49,7 @@ def _residue_one_letter_code(res_name: str) -> str | None:
     if len(res_name) != 3:
         return None
     try:
-        return bio_seq.ProteinSequence.convert_letter_3to1(res_name)
+        return ProteinSequence.convert_letter_3to1(res_name)
     except KeyError:
         return None
 

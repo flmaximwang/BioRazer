@@ -1,7 +1,7 @@
 import numpy as np
 from numbers import Number
-from biotite.sequence import SequenceProfile
-from biotite.sequence.align import Alignment
+
+from biorazer.sequence.objects import Alignment, SequenceProfile
 from .scaler import calculate_entropy
 from biorazer.sequence.analysis.alignment.util import parse_matrix_like
 

@@ -9,7 +9,6 @@ from rdkit.Chem import SDWriter
 from biotite.structure.io import pdb, pdbx
 from biotite.structure.io.mol import SDFile, set_structure
 import biotite.structure as bio_struc
-import biotite.sequence as bio_seq
 
 from biorazer.io import Converter
 from biorazer.sequence.io import StrDict_Fasta

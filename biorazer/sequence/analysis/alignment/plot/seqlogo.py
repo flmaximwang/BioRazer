@@ -6,14 +6,13 @@ from pathlib import Path
 import numpy as np
 import matplotlib.pyplot as plt
 
-from biotite.sequence import SequenceProfile
-from biotite.sequence.align import Alignment
 from biotite.sequence.graphics import plot_sequence_logo
 from biotite.sequence.graphics.colorschemes import get_color_scheme
 from biotite.visualize import plot_scaled_text
 from matplotlib.transforms import ScaledTranslation
 
 from biorazer.sequence.io import Fasta_Profile
+from biorazer.sequence.objects import Alignment, SequenceProfile
 
 
 def _pad_profile_left(profile, n_empty):

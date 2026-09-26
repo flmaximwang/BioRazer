@@ -45,8 +45,8 @@ from typing import Dict, List, NamedTuple, Optional, Tuple
 
 import matplotlib.pyplot as plt
 from biotite.sequence.graphics import plot_sequence_logo
-from biotite.sequence.profile import SequenceProfile
 
+from biorazer.sequence.objects import SequenceProfile
 from biorazer.sequence.analysis.alignment.plot import plot_msa_coverage
 from biorazer.sequence.io import A3m_Alignment
 
@@ -89,7 +89,7 @@ def _generate_logo(a3m_path: str, out_path: str,
         profile = SequenceProfile.from_alignment(alignment)
         # Add gap column so gap-only positions display as '-' in the logo
         import numpy as np
-        from biotite.sequence.alphabet import LetterAlphabet
+        from biorazer.sequence.objects import LetterAlphabet
         from biotite.sequence.graphics import get_color_scheme
         orig_alph = list(profile.alphabet)
         alph_with_gap = LetterAlphabet(orig_alph + ['-'])
