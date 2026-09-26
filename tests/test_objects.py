@@ -190,6 +190,8 @@ def test_bridge_converter_classes_are_reexported():
         "SMCRA_ICChain",
         "ICChain_SMCRA",
         "AtomArray_ProteinSequence",
+        "AtomArraySelector_AtomArrayMask",
+        "AtomArraySelector_AtomArrayIndices",
     }
     for name in B.__all__:
         assert isinstance(getattr(B, name), type), name
