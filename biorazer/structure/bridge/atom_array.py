@@ -104,12 +104,23 @@ class AtomArray_InternalCoord(Converter):
 
     Every atom of the input gets a record -- including the ``altloc_id``
     label, so a selector can filter on alternate conformations.  The **grow
-    tree**, however, holds one atom per ``(chain, res_id, ins_code, name)``:
-    an array read with ``altloc="all"`` therefore yields records the graph
-    cannot place (measured on 2VB1: 654 of 2900 records), and
-    :class:`InternalCoord_AtomArray` raises ``Unreachable atoms`` for them.
-    Build the IC from ``altloc="first"`` when the input has alternate
-    conformations.
+    tree**, however, keys atoms by ``(chain, res_id, ins_code, name)``: e.g.
+    per name the last copy in array order wins, and the peptide quads are
+    only recorded when that picked ``C_i - N_{i+1}`` distance is within the
+    C-N bond-length bound.  Picking a copy per atom is therefore a lottery on
+    a multi-conformer structure, and losing it once orphans everything
+    downstream -- measured on 2VB1, whose residue 5 ``N`` has an altloc A
+    copy 1.375 A from ``C4`` (just over the 1.371 A bound) and a B copy at
+    1.241 A: array order keeps B at 4->5 but B again at 43->44, where the A
+    copy was the bonded one (1.313 A vs 1.454 A), so the chain breaks at 44
+    and 654 of 2900 records become unplaceable
+    (:class:`InternalCoord_AtomArray` then raises ``Unreachable atoms``).
+
+    Reading with ``altloc="first"`` is **not** the fix: it keeps per-atom
+    first copies, which on the same file break earlier still (961 records
+    unplaceable, from residue 5).  An ``InternalCoord`` round trip needs a
+    conformer set that is geometrically self-consistent, which is the
+    caller's decision, not one this builder can make.
 
     Anchors default to the first three backbone atoms ``N, CA, C`` of every
     chain (one connected-component root per chain).
