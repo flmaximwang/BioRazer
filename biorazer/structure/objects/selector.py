@@ -25,11 +25,11 @@
 (``,A,45,CA`` 不会连 ``45A`` 一起命中); 任意 (空框, 写成 ``*``) = 管它有没有。字面值**区分大小写**。
 
 ``altloc`` 的值来自 biotite 的 ``altloc_id`` 标注, 只有按 ``altloc="all"`` 读进来的数组才有
-(:class:`biorazer.structure.io.protein.StructureFile_AtomArray` 就是那么读的);
-:class:`~biorazer.structure.objects.InternalCoord` 也带 (它的
-:class:`~biorazer.structure.objects.InternalCoordAtom` 记 ``altloc_id``, 同样只有从
-``altloc="all"`` 的数组建出来的 IC 才有非空值)。目标**根本没有**这个 category 时 (手工拼的
-``AtomArray``), 带 altloc 约束的规则会报"无法判定"而不是静默当命中。具体见 :class:`_TargetView`。
+(:class:`biorazer.structure.io.protein.StructureFile_AtomArray` 就是那么读的)。
+:class:`~biorazer.structure.objects.InternalCoord` **不带** altloc (它的记录一个原子名一格, 见
+:class:`~biorazer.structure.bridge.AtomArray_InternalCoord`), 所以 IC 目标与手工拼的
+``AtomArray`` 一样属于"没有这个 category": 带 altloc 约束的规则会报"无法判定"而不是静默当命中。
+具体见 :class:`_TargetView`。
 
 用法::
 
@@ -74,9 +74,15 @@ from pathlib import Path
 import numpy as np
 
 from biorazer.structure.objects.bt_atom_array import AtomArrayStack
-from biorazer.structure.objects.internal_coords import NULL_ALT, InternalCoord
+from biorazer.structure.objects.internal_coords import InternalCoord
 
 FIELDS: tuple[str, ...] = ("ins_code", "chain", "resi", "name", "altloc")
+
+#: biotite spells "no alternate conformation" three ways depending on the
+#: source: an empty PDB altLoc column is ``" "``, an mmCIF one ``"."``, a
+#: missing value ``"?"``.  The field view normalises all of them, so a rule
+#: saying "no altloc" has one spelling to write (the empty cell).
+NULL_ALT = ("", " ", ".", "?")
 
 #: 这两个字段的**空模式**不是"任意", 而是"没有" (无插入码 / 无 altloc) —— 否则
 #: `,A,45,CA` 会悄悄连 `45A`、`A`-altloc 的原子一起命中。"任意"要写 `*`。
@@ -228,11 +234,11 @@ class _TargetView:
 
     ``altloc`` 的值来自目标的 ``altloc_id``: ``AtomArray`` 上那是 biotite 的标注 —— 只有**按
     ``altloc="all"`` 读进来**的数组才有 (实测 biotite 1.6: 默认 ``altloc="first"`` 不带这个
-    category, 见 :class:`biorazer.structure.io.protein.StructureFile_AtomArray`); ``InternalCoord``
-    上是同名的 per-atom accessor (由 :class:`~biorazer.structure.objects.InternalCoordAtom` 提供,
-    同样只有从 ``altloc="all"`` 的数组建出来才非空)。两者都没有时 ``has_altloc=False``, 所有原子的
-    altloc 记成 ``""`` (= 无 altloc)。"没有"的三种 sentinel (PDB 空列 ``" "`` / CIF ``"."``
-    / ``"?"``) 一律归一成 ``""`` (见 :data:`~biorazer.structure.objects.internal_coords.NULL_ALT`)。
+    category, 见 :class:`biorazer.structure.io.protein.StructureFile_AtomArray`)。
+    ``InternalCoord`` 上没有这个标注 (记录不带 altloc, 见
+    :class:`~biorazer.structure.bridge.AtomArray_InternalCoord`), 于是一切目标都不带标注时
+    ``has_altloc=False``, 所有原子的 altloc 记成 ``""`` (= 无 altloc)。"没有"的三种 sentinel
+    (PDB 空列 ``" "`` / CIF ``"."`` / ``"?"``) 一律归一成 ``""`` (见 :data:`NULL_ALT`)。
     """
 
     def __init__(self, target):
@@ -260,7 +266,7 @@ class _TargetView:
         return tuple(self.vals[f][a] for f in FIELDS)
 
     def atom_str(self, a: int) -> str:
-        """A/45B/CA —— 插入码直接跟在 resi 后面; 有 altloc 时再跟 ``(A)``。"""
+        """A/45B/CA —— 插入码直接跟在 resi 后面; 目标带 altloc 时再跟 ``(A)``。"""
         alt = self.vals["altloc"][a]
         return (f"{self.vals['chain'][a]}/{self.vals['resi'][a]}"
                 f"{self.vals['ins_code'][a]}/{self.vals['name'][a]}"
@@ -277,8 +283,8 @@ def match_rule(patterns: dict, view: _TargetView) -> tuple[list[int], list[str]]
     """一行规则 → (命中的原子下标列表, 警告列表)。"""
     warns = []
     if not view.has_altloc and patterns.get("altloc", "").strip() not in ("", "*"):
-        warns.append("目标没有 altloc 标注 (手工拼的 AtomArray; 读文件请用 "
-                     "StructureFile_AtomArray), altloc 模式无法判定")
+        warns.append("目标没有 altloc 标注 (InternalCoord 不带; 手工拼的 AtomArray 也不带; "
+                     "读文件请用 StructureFile_AtomArray), altloc 模式无法判定")
     try:
         # ponytail: 每行 5×N 次匹配; 结构 >10^6 原子时再预编译谓词
         hits = [a for a in range(view.n)

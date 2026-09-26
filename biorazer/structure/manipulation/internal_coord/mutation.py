@@ -126,9 +126,7 @@ def _graft(ic, key, tgt_resn, rotamer, chi):
                                      res_name=tgt_resn,
                                      res_id=key[1],
                                      name=a.name,
-                                     element=a.element,
-                                     # 模板原子不带 altloc; 被替换掉的旧侧链的标签跟着旧原子走
-                                     altloc_id="")
+                                     element=a.element)
                    for _, a in tmpl_sc]
     added = {rec.name: cut + n for n, rec in enumerate(new_records)}
     # 目标残基的**骨架**原子也要换成新记录: res_name/res_id 改在结果上, 且输入那份
@@ -138,8 +136,7 @@ def _graft(ic, key, tgt_resn, rotamer, chi):
                                          res_name=tgt_resn,
                                          res_id=key[1],
                                          name=ic.atoms[i].name,
-                                         element=ic.atoms[i].element,
-                                         altloc_id=ic.atoms[i].altloc_id)
+                                         element=ic.atoms[i].element)
                     for i in backbone.values()}
 
     def pick(i):

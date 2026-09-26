@@ -201,8 +201,8 @@ def test_resolve_reports_hits_and_warnings():
     assert hits == [[0, 1], [2], [], [], []]
     assert warns[2] == ["0 命中", "chain 'Z' 不在目标里 (只有 A,B)"]
     assert warns[3][0].startswith("正则错误")
-    assert warns[4] == ["目标没有 altloc 标注 (手工拼的 AtomArray; 读文件请用 "
-                        "StructureFile_AtomArray), altloc 模式无法判定", "0 命中"]
+    assert warns[4] == ["目标没有 altloc 标注 (InternalCoord 不带; 手工拼的 AtomArray 也不带; "
+                        "读文件请用 StructureFile_AtomArray), altloc 模式无法判定", "0 命中"]
     assert dup == 0
 
 
@@ -325,8 +325,8 @@ def test_altloc_field_matches_the_read_path(altloc_pdb):
             == sorted(set(ca(both.indices(arr))) - set(ca(none_alt.indices(arr)))))
     # 带 altloc 的规则在无标注的目标上报 "无法判定"
     _, warns, _ = only_a.resolve(_tiny_array())
-    assert warns[0] == ["目标没有 altloc 标注 (手工拼的 AtomArray; 读文件请用 "
-                        "StructureFile_AtomArray), altloc 模式无法判定", "0 命中"]
+    assert warns[0] == ["目标没有 altloc 标注 (InternalCoord 不带; 手工拼的 AtomArray 也不带; "
+                        "读文件请用 StructureFile_AtomArray), altloc 模式无法判定", "0 命中"]
 
 
 # --------------------------------------------------------------------------
@@ -532,28 +532,45 @@ def test_editor_full_flow(tmp_path, altloc_pdb):
 
 
 # --------------------------------------------------------------------------
-# 选择器吃 InternalCoord 目标 (IC 的 record 也带 altloc_id)
+# 选择器吃 InternalCoord 目标 / bridge 拒绝带 altloc 的数组
 # --------------------------------------------------------------------------
 
 class TestSelectorOnInternalCoord:
-    """IC 目标上 altloc 约束照样生效 (IC 的 record 字段见 test_internal_coord_altloc.py)。"""
+    """IC 的 record 不带 altloc, 所以 IC 目标与手工数组一样是"没有这个 category"。"""
 
-    def test_matches_altloc_without_the_cannot_tell_warning(self, altloc_pdb):
-        """不再报"无法判定": altloc 约束直接按 record 匹配。"""
-        ic = AtomArray_InternalCoord(
-            input_io=StructureFile_AtomArray(input_io=altloc_pdb).read()).convert()
-        sel = AtomArraySelector(rules=[
-            ["", "A", "2", "CA", "A"],          # 只 A 构象
-            ["", "A", "2", "CA", "B"],          # 只 B 构象
-            ["", "A", "2", "CA", ""],           # 只"没有 altloc"的
-        ])
+    def test_altloc_rule_on_ic_cannot_tell(self):
+        """带 altloc 约束的规则在 IC 上报"无法判定", 而不是静默当命中。"""
+        ic = AtomArray_InternalCoord(input_io=_tiny_array()).convert()
+        sel = AtomArraySelector(rules=[["", "A", "1", "CA", "A"]])
         hits, warns, _dup = sel.resolve(ic)
-        # 规则 3 (第 2 号残基的 CA 且"没有 altloc") 本来就 0 命中; 关键是**没有**"无法判定"
-        assert warns == {2: ["0 命中"]}
-        assert [len(h) for h in hits] == [1, 1, 0]
-        # 展示用的 tag 也带上构象 (与 AtomArray 目标同写法)
-        assert ic.atom_repr(hits[0][0]).endswith("CA(A)")
-        assert ic.atom_repr(hits[1][0]).endswith("CA(B)")
+        assert hits == [[]]
+        assert warns[0] == ["目标没有 altloc 标注 (InternalCoord 不带; 手工拼的 AtomArray 也不带; "
+                            "读文件请用 StructureFile_AtomArray), altloc 模式无法判定", "0 命中"]
+        # 不带 altloc 约束的规则在 IC 上照常命中, tag 也不带构象后缀
+        hits2 = AtomArraySelector(rules=[["", "A", "1", "CA", ""]]).resolve(ic)[0]
+        assert hits2 == [[0]] and ic.atom_repr(hits2[0][0]) == "A:1:GLY:CA"
+
+
+class TestBridgeRefusesAltloc:
+    """IC 是"一个原子名一格"的生长树 —— 带 altloc 的数组不给建 (会静默丢副本)。"""
+
+    def test_array_with_altloc_is_refused(self, altloc_pdb):
+        arr = StructureFile_AtomArray(input_io=altloc_pdb).read()
+        with pytest.raises(ValueError) as exc:
+            AtomArray_InternalCoord(input_io=arr).convert()
+        msg = str(exc.value)
+        assert "carries alternate conformations (2 of 13 atoms" in msg
+        assert "A/2/ALA/CA altloc 'A'" in msg          # 点名第一个带标签的原子
+        assert "InternalCoord has no altloc" in msg
+
+    def test_array_without_altloc_converts(self):
+        """没有 altloc 标注的数组照常建 IC —— guard 只挡带标签的。"""
+        from tests.test_mutation import _ideal_chain
+        arr = _ideal_chain(3, "A")
+        assert not hasattr(arr, "altloc_id")
+        ic = AtomArray_InternalCoord(input_io=arr).convert()
+        assert len(ic.atoms) == len(arr) == 12
+        assert not hasattr(ic, "altloc_id")
 
 
 # --------------------------------------------------------------------------
