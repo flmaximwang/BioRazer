@@ -7,12 +7,18 @@ The operand here is ``InternalCoord``
 
 - :mod:`~biorazer.structure.manipulation.internal_coord.modification` --
   connect two ``InternalCoord`` fragments with a new peptide bond.
+- :mod:`~biorazer.structure.manipulation.internal_coord.mutation` --
+  swap a residue's side chain for another residue's template.
 """
 
 from biorazer.structure.manipulation.internal_coord.modification import (
     connect_internal_coords,
 )
+from biorazer.structure.manipulation.internal_coord.mutation import (
+    mutate,
+)
 
 __all__ = [
     "connect_internal_coords",
+    "mutate",
 ]
